@@ -1,0 +1,2492 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+    />
+    <title>Bête Mystère — jeu de dessin collaboratif</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ===================== Design tokens ===================== */
+      :root {
+        --bg: #16241d;
+        --bg-alt: #1f3327;
+        --bg-alt-2: #24392c;
+        --paper: #f4ecd8;
+        --paper-dim: #e7dcc2;
+        --ink: #17231b;
+        --coral: #ff6b54;
+        --coral-dim: #c4462f;
+        --gold: #f2b84b;
+        --teal: #4fb6a8;
+        --line: rgba(244, 236, 216, 0.14);
+        --line-strong: rgba(244, 236, 216, 0.28);
+        --shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.45);
+        --radius: 14px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: radial-gradient(
+          120% 140% at 15% -10%,
+          var(--bg-alt) 0%,
+          var(--bg) 55%
+        );
+        color: var(--paper);
+        font-family: 'Space Grotesk', sans-serif;
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: 'Fraunces', serif;
+        font-weight: 600;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      button {
+        font-family: 'Space Grotesk', sans-serif;
+        cursor: pointer;
+      }
+      input {
+        font-family: 'Space Grotesk', sans-serif;
+      }
+      .mono {
+        font-family: 'Space Mono', monospace;
+      }
+
+      a,
+      button {
+        color: inherit;
+      }
+
+      /* ===================== Layout shell ===================== */
+      #app {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 20px 18px 60px;
+      }
+      .screen {
+        display: none;
+        animation: fadein 0.35s ease;
+      }
+      .screen.active {
+        display: block;
+      }
+      @keyframes fadein {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      .top-eyebrow {
+        font-family: 'Space Mono', monospace;
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--gold);
+        margin-bottom: 8px;
+      }
+
+      /* ===================== Buttons ===================== */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: none;
+        border-radius: 999px;
+        padding: 13px 26px;
+        font-weight: 600;
+        font-size: 15px;
+        transition: transform 0.12s ease, box-shadow 0.12s ease,
+          background 0.12s ease;
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .btn-primary {
+        background: var(--coral);
+        color: #1b0d08;
+        box-shadow: 0 8px 22px -8px rgba(255, 107, 84, 0.55);
+      }
+      .btn-primary:not(:disabled):hover {
+        background: #ff7d68;
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--paper);
+        border: 1px solid var(--line-strong);
+      }
+      .btn-ghost:not(:disabled):hover {
+        border-color: var(--paper);
+      }
+      .btn-teal {
+        background: var(--teal);
+        color: #0c201d;
+      }
+      .btn-small {
+        padding: 8px 16px;
+        font-size: 13px;
+        border-radius: 999px;
+      }
+
+      /* ===================== Ticket / specimen tag (élément signature) ===================== */
+      .ticket {
+        background: var(--paper);
+        color: var(--ink);
+        border-radius: 10px;
+        border: 2px dashed rgba(23, 35, 27, 0.25);
+        box-shadow: var(--shadow);
+        padding: 18px 22px;
+      }
+      .ticket-code {
+        font-family: 'Space Mono', monospace;
+        font-size: 42px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        transform: rotate(-1.2deg);
+        display: inline-block;
+      }
+      .room-code-ticket {
+        cursor: pointer;
+        transition: transform 160ms ease, box-shadow 160ms ease;
+      }
+      .room-code-ticket:hover {
+        transform: translateY(-2px);
+      }
+      .room-code-ticket.copied {
+        animation: copyPulse 420ms ease;
+      }
+      @keyframes copyPulse {
+        0% {
+          transform: scale(1);
+        }
+        35% {
+          transform: scale(0.96);
+          /* box-shadow: 0 0 0 6px rgba(79, 182, 168, 0.35); */
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: 'Space Mono', monospace;
+        font-size: 11.5px;
+        letter-spacing: 0.03em;
+        padding: 4px 10px 4px 8px;
+        border-radius: 3px 8px 8px 3px;
+        position: relative;
+        box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.4);
+      }
+      .tag::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--bg);
+        box-shadow: 0 0 0 2px var(--paper) inset;
+      }
+
+      /* ===================== Home screen ===================== */
+      .hero {
+        text-align: center;
+        padding: 48px 0 12px;
+      }
+      .hero h1 {
+        font-size: clamp(38px, 7vw, 64px);
+        line-height: 1.02;
+      }
+      .hero h1 em {
+        font-style: italic;
+        color: var(--coral);
+      }
+      .hero p {
+        color: var(--paper-dim);
+        max-width: 460px;
+        margin: 14px auto 0;
+        font-size: 15px;
+      }
+
+      .card {
+        background: var(--bg-alt);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 26px;
+        box-shadow: var(--shadow);
+      }
+      .field {
+        margin-bottom: 16px;
+      }
+      .field label {
+        display: block;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--gold);
+        margin-bottom: 7px;
+        font-family: 'Space Mono', monospace;
+      }
+      .field input[type='text'] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 100%;
+        background: var(--bg);
+        border: 1px solid var(--line-strong);
+        color: var(--paper);
+        border-radius: 10px;
+        padding: 13px 14px;
+        font-size: 16px;
+        outline: none;
+        transition: border-color 160ms ease, box-shadow 160ms ease;
+      }
+      .field input[type='text']:focus {
+        border-color: var(--coral);
+        box-shadow: 0 0 0 3px rgba(255, 107, 84, 0.18);
+      }
+
+      .code-digits {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+      }
+      .code-digit {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 56px;
+        height: 64px;
+        text-align: center;
+        font-family: 'Space Mono', monospace;
+        font-size: 28px;
+        font-weight: 700;
+        text-transform: uppercase;
+        background: var(--bg);
+        border: 1px solid var(--line-strong);
+        color: var(--paper);
+        border-radius: 10px;
+        outline: none;
+        transition: border-color 180ms ease, box-shadow 180ms ease,
+          transform 180ms ease, background 180ms ease;
+      }
+      .code-digit:focus {
+        border-color: var(--teal);
+        box-shadow: 0 0 0 4px rgba(79, 182, 168, 0.22);
+        transform: translateY(-2px);
+      }
+      .code-digit.filled {
+        border-color: var(--coral);
+        background: var(--bg-alt-2);
+      }
+      @media (max-width: 400px) {
+        .code-digit {
+          width: 46px;
+          height: 56px;
+          font-size: 22px;
+        }
+        .code-digits {
+          gap: 8px;
+        }
+      }
+
+      .home-grid {
+        max-width: 420px;
+        margin: 22px auto 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .divider-or {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--paper-dim);
+        font-size: 12px;
+        margin: 4px 0;
+      }
+      .divider-or::before,
+      .divider-or::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--line);
+      }
+      .error-msg {
+        color: var(--coral);
+        font-size: 13px;
+        margin-top: 8px;
+        min-height: 16px;
+      }
+      .join-row {
+        display: none;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .join-row.active {
+        display: flex;
+      }
+
+      /* ===================== Lobby ===================== */
+      .lobby-layout {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+      @media (max-width: 760px) {
+        .lobby-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+      .room-code-block {
+        text-align: center;
+        margin-bottom: 14px;
+      }
+      .room-code-block .label {
+        font-family: 'Space Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--gold);
+      }
+      .copy-hint {
+        font-size: 12px;
+        color: var(--paper-dim);
+        margin-top: 6px;
+      }
+
+      .player-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .player-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--bg-alt-2);
+        border-radius: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+      }
+      .player-row .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--teal);
+        flex-shrink: 0;
+      }
+      .player-row.offline .dot {
+        background: #7a7a7a;
+      }
+      .player-row .pname {
+        flex: 1;
+        font-weight: 500;
+      }
+      .player-row .crown {
+        font-size: 14px;
+      }
+      .player-row .pscore {
+        font-family: 'Space Mono', monospace;
+        font-size: 13px;
+        color: var(--gold);
+      }
+      .you-badge {
+        font-family: 'Space Mono', monospace;
+        font-size: 10px;
+        background: var(--coral);
+        color: #1b0d08;
+        padding: 2px 6px;
+        border-radius: 6px;
+        margin-left: 4px;
+      }
+
+      .settings-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-top: 6px;
+      }
+      .setting-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .setting-row .setting-label {
+        font-size: 14px;
+        color: var(--paper-dim);
+      }
+      .setting-row .setting-value {
+        font-family: 'Space Mono', monospace;
+        color: var(--gold);
+        font-size: 14px;
+        min-width: 52px;
+        text-align: right;
+      }
+      input[type='range'] {
+        -webkit-appearance: none;
+        appearance: none;
+        flex: 1;
+        height: 6px;
+        border-radius: 999px;
+        outline: none;
+        cursor: pointer;
+        background: linear-gradient(
+          to right,
+          var(--coral) 0%,
+          var(--coral) var(--range-progress, 50%),
+          var(--line-strong) var(--range-progress, 50%),
+          var(--line-strong) 100%
+        );
+        transition: box-shadow 160ms ease;
+      }
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--paper);
+        border: 3px solid var(--coral);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        cursor: pointer;
+        transition: transform 120ms ease;
+      }
+      input[type='range']::-webkit-slider-thumb:hover {
+        transform: scale(1.15);
+      }
+      input[type='range']::-moz-range-track {
+        height: 6px;
+        background: transparent;
+        border-radius: 999px;
+      }
+      input[type='range']::-moz-range-progress {
+        height: 6px;
+        background: var(--coral);
+        border-radius: 999px;
+      }
+      input[type='range']::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--paper);
+        border: 3px solid var(--coral);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        cursor: pointer;
+        transition: transform 120ms ease;
+      }
+      input[type='range']::-moz-range-thumb:hover {
+        transform: scale(1.15);
+      }
+      .settings-readonly {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 6px;
+      }
+
+      .section-title {
+        font-family: 'Space Mono', monospace;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--gold);
+        margin-bottom: 10px;
+      }
+
+      /* ===================== Countdown ===================== */
+      .countdown-wrap {
+        text-align: center;
+        padding: 40px 0;
+      }
+      .countdown-subtitle {
+        color: var(--paper-dim);
+        font-size: 14px;
+        margin: 4px 0 22px;
+      }
+      .countdown-progress {
+        width: 100%;
+        max-width: 260px;
+        height: 4px;
+        background: var(--line);
+        border-radius: 4px;
+        overflow: hidden;
+        margin: 16px auto 0;
+      }
+      .countdown-progress-fill {
+        height: 100%;
+        width: 0%;
+        background: var(--coral);
+      }
+      .arachnid-note {
+        margin-top: 12px;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--coral);
+        font-size: 12.5px;
+      }
+
+      /* ===================== Carrousel photo de référence (élément signature) ===================== */
+      .carousel {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .carousel-viewport {
+        position: relative;
+        width: 100%;
+        max-width: 300px;
+        overflow: hidden;
+        padding: 3px;
+        border-radius: 14px;
+      }
+      .carousel-track {
+        display: flex;
+        align-items: stretch;
+        gap: 14px;
+      }
+      .carousel-track .carousel-card {
+        flex: 0 0 100%;
+        width: 100%;
+      }
+      .carousel-group-title {
+        font-family: 'Space Mono', monospace;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--gold);
+        margin-bottom: 8px;
+        text-align: center;
+      }
+      .item-row {
+        display: flex;
+        gap: 8px;
+        height: 100%;
+      }
+      .item-cell {
+        flex: 1;
+        min-width: 0;
+        background: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 10px 22px -10px rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(23, 35, 27, 0.12);
+      }
+      .carousel-photo {
+        width: 100%;
+        aspect-ratio: 4/3;
+        object-fit: cover;
+        display: block;
+        background: #eee;
+      }
+      .item-cell.no-photo .carousel-photo {
+        display: none;
+      }
+      .carousel-placeholder {
+        display: none;
+        width: 100%;
+        aspect-ratio: 4/3;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 30px;
+        background: repeating-linear-gradient(
+          45deg,
+          var(--paper-dim) 0 10px,
+          var(--paper) 10px 20px
+        );
+      }
+      .item-cell.no-photo .carousel-placeholder {
+        display: flex;
+      }
+      .carousel-placeholder .ph-text {
+        font-family: 'Space Mono', monospace;
+        font-size: 9px;
+        color: var(--ink);
+        opacity: 0.55;
+      }
+      .item-caption {
+        padding: 7px 8px;
+        text-align: center;
+        color: var(--ink);
+      }
+      .item-caption .item-label {
+        display: block;
+        font-family: 'Space Mono', monospace;
+        font-size: 9.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        opacity: 0.6;
+      }
+      .item-caption .item-value {
+        display: block;
+        font-family: 'Fraunces', serif;
+        font-weight: 600;
+        font-size: 14px;
+        margin-top: 2px;
+        line-height: 1.15;
+      }
+      .carousel-nav {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 2px;
+      }
+      .carousel-arrow {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: none;
+        background: var(--coral);
+        color: #1b0d08;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        line-height: 1;
+      }
+      .carousel-arrow:hover {
+        background: #ff7d68;
+      }
+      .carousel-dots {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: 150px;
+      }
+      .carousel-dots .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: grey;
+        border: none;
+        padding: 0;
+        transition: all 80ms ease;
+      }
+      .carousel-dots .dot.active {
+        background: var(--coral);
+        width: 8px;
+        height: 8px;
+      }
+      .carousel-counter {
+        font-family: 'Space Mono', monospace;
+        font-size: 11px;
+        color: var(--ink);
+      }
+
+      /* ===================== Drawing screen ===================== */
+      .game-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      .round-pill {
+        font-family: 'Space Mono', monospace;
+        font-size: 13px;
+        color: var(--paper-dim);
+      }
+      .timer-pill {
+        font-family: 'Space Mono', monospace;
+        font-weight: 700;
+        font-size: 18px;
+        background: var(--gold);
+        color: #241a02;
+        padding: 6px 16px;
+        border-radius: 999px;
+        min-width: 64px;
+        text-align: center;
+      }
+      .timer-pill.low {
+        background: var(--coral);
+        color: #210a05;
+        animation: pulse 1s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.06);
+        }
+      }
+      .progress-pill {
+        font-family: 'Space Mono', monospace;
+        font-size: 12px;
+        color: var(--paper-dim);
+      }
+
+      .draw-layout {
+        display: grid;
+        grid-template-columns: 270px 1fr;
+        gap: 18px;
+        align-items: start;
+      }
+      @media (max-width: 760px) {
+        .draw-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .specimen-card {
+        position: sticky;
+        top: 14px;
+      }
+
+      .canvas-wrap {
+        background: var(--bg-alt);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 14px;
+        box-shadow: var(--shadow);
+      }
+      #drawCanvas {
+        width: 100%;
+        height: auto;
+        display: block;
+        background: #ffffff;
+        border-radius: 8px;
+        touch-action: none;
+        cursor: crosshair;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08) inset;
+      }
+      #drawCanvas.tool-fill {
+        cursor: cell;
+      }
+      .canvas-wrap.locked #drawCanvas {
+        opacity: 0.75;
+        cursor: default;
+      }
+      .canvas-wrap.locked .toolbar .icon-btn,
+      .canvas-wrap.locked .toolbar .swatch,
+      .canvas-wrap.locked .toolbar #colorPicker,
+      .canvas-wrap.locked .toolbar #brushSize {
+        opacity: 0.35;
+        pointer-events: none;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+      .swatches {
+        display: flex;
+        gap: 6px;
+      }
+      .swatch {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 2px solid rgba(244, 236, 216, 0.25);
+        padding: 0;
+      }
+      .swatch.active {
+        border-color: var(--paper);
+        transform: scale(1.12);
+      }
+      .tool-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .tool-group label {
+        font-size: 12px;
+        color: var(--paper-dim);
+      }
+      #brushSize {
+        width: 90px;
+      }
+      .icon-btn {
+        background: var(--bg-alt-2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 15px;
+      }
+      .icon-btn.active {
+        background: var(--coral);
+        color: #1b0d08;
+      }
+      .icon-btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+      .submit-row {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 14px;
+      }
+      .waiting-note {
+        text-align: center;
+        color: var(--paper-dim);
+        font-size: 14px;
+        margin-top: 10px;
+      }
+
+      /* ===================== Voting / gallery ===================== */
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 16px;
+        margin-top: 8px;
+      }
+      .spec-frame {
+        background: var(--paper);
+        border-radius: 10px;
+        padding: 10px 10px 12px;
+        box-shadow: var(--shadow);
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        position: relative;
+      }
+      .spec-frame img {
+        width: 100%;
+        border-radius: 6px;
+        display: block;
+        background: #fff;
+      }
+      .spec-frame:hover:not(.disabled) {
+        transform: translateY(-4px);
+      }
+      .spec-frame.selected {
+        outline: 3px solid var(--coral);
+      }
+      .spec-frame.disabled {
+        cursor: default;
+        opacity: 0.55;
+      }
+      .spec-frame .frame-tag {
+        margin-top: 8px;
+      }
+      .spec-frame .ribbon {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: var(--gold);
+        color: #241a02;
+        font-family: 'Space Mono', monospace;
+        font-weight: 700;
+        font-size: 13px;
+        border-radius: 50%;
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 10px -3px rgba(0, 0, 0, 0.5);
+      }
+      .spec-frame .crown-flag {
+        position: absolute;
+        top: -10px;
+        left: -6px;
+        font-size: 22px;
+      }
+      .vote-note {
+        text-align: center;
+        margin-top: 16px;
+        color: var(--paper-dim);
+        font-size: 14px;
+      }
+
+      /* ===================== Reveal & scoreboard ===================== */
+      .reveal-layout {
+        display: grid;
+        grid-template-columns: 1fr 260px;
+        gap: 20px;
+        align-items: start;
+      }
+      @media (max-width: 760px) {
+        .reveal-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+      .scoreboard {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .score-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--bg-alt-2);
+        border-radius: 10px;
+        padding: 9px 12px;
+        border: 1px solid var(--line);
+      }
+      .score-row .rank {
+        font-family: 'Space Mono', monospace;
+        color: var(--gold);
+        width: 20px;
+      }
+      .score-row .sname {
+        flex: 1;
+        font-weight: 500;
+      }
+      .score-row .spts {
+        font-family: 'Space Mono', monospace;
+        color: var(--paper-dim);
+      }
+
+      .host-actions {
+        display: flex;
+        justify-content: center;
+        margin-top: 22px;
+      }
+      .waiting-host {
+        text-align: center;
+        color: var(--paper-dim);
+        margin-top: 22px;
+        font-size: 14px;
+      }
+
+      /* ===================== Game over / podium ===================== */
+      .podium {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 14px;
+        margin: 30px 0 10px;
+      }
+      .podium-step {
+        background: var(--bg-alt);
+        border: 1px solid var(--line);
+        border-radius: 12px 12px 4px 4px;
+        padding: 16px 16px 12px;
+        text-align: center;
+        width: 120px;
+      }
+      .podium-step.first {
+        height: 150px;
+      }
+      .podium-step.second {
+        height: 120px;
+      }
+      .podium-step.third {
+        height: 100px;
+      }
+      .podium-medal {
+        font-size: 30px;
+      }
+      .podium-name {
+        font-weight: 600;
+        margin-top: 6px;
+        font-size: 14px;
+      }
+      .podium-score {
+        font-family: 'Space Mono', monospace;
+        color: var(--gold);
+        font-size: 13px;
+        margin-top: 4px;
+      }
+      .final-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 26px;
+        flex-wrap: wrap;
+      }
+
+      /* ===================== Toasts ===================== */
+      #toast-container {
+        position: fixed;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 999;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+      }
+      .toast {
+        background: var(--bg-alt);
+        border: 1px solid var(--line-strong);
+        color: var(--paper);
+        font-size: 13px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        box-shadow: var(--shadow);
+        animation: toastin 0.25s ease, toastout 0.3s ease 2.4s forwards;
+      }
+      @keyframes toastin {
+        from {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes toastout {
+        to {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+      }
+
+      .muted {
+        color: var(--paper-dim);
+      }
+      .center {
+        text-align: center;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="toast-container"></div>
+
+    <main id="app">
+      <!-- ===================== ACCUEIL ===================== -->
+      <section class="screen active" id="screen-home">
+        <div class="hero">
+          <div class="top-eyebrow">Jeu de dessin en salon</div>
+          <h1>Bête <em>Mystère</em></h1>
+          <p>
+            Tout le salon reçoit la même créature générée au hasard. Chacun la
+            dessine en secret, puis on révèle et on vote pour le meilleur
+            spécimen.
+          </p>
+        </div>
+
+        <div class="home-grid">
+          <div class="card">
+            <div class="field">
+              <label for="pseudoInput">Ton pseudo</label>
+              <input
+                type="text"
+                id="pseudoInput"
+                placeholder="Ex. Capitaine Loutre"
+                maxlength="16"
+              />
+            </div>
+
+            <div class="row" style="justify-content: center">
+              <button class="btn btn-primary" id="btnCreate" style="flex: 1">
+                Créer un salon
+              </button>
+              <button class="btn btn-ghost" id="btnShowJoin" style="flex: 1">
+                Rejoindre un salon
+              </button>
+            </div>
+
+            <div class="join-row" id="joinRow">
+              <div class="divider-or">Code du salon</div>
+              <div class="code-digits" id="codeDigits">
+                <input
+                  type="text"
+                  class="code-digit"
+                  inputmode="text"
+                  autocomplete="off"
+                  maxlength="1"
+                  data-index="0"
+                  aria-label="Caractère 1 du code"
+                />
+                <input
+                  type="text"
+                  class="code-digit"
+                  inputmode="text"
+                  autocomplete="off"
+                  maxlength="1"
+                  data-index="1"
+                  aria-label="Caractère 2 du code"
+                />
+                <input
+                  type="text"
+                  class="code-digit"
+                  inputmode="text"
+                  autocomplete="off"
+                  maxlength="1"
+                  data-index="2"
+                  aria-label="Caractère 3 du code"
+                />
+                <input
+                  type="text"
+                  class="code-digit"
+                  inputmode="text"
+                  autocomplete="off"
+                  maxlength="1"
+                  data-index="3"
+                  aria-label="Caractère 4 du code"
+                />
+              </div>
+              <button class="btn btn-teal" id="btnJoin">Rejoindre</button>
+            </div>
+
+            <div class="error-msg" id="homeError"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== LOBBY ===================== -->
+      <section class="screen" id="screen-lobby">
+        <div class="room-code-block">
+          <div class="label">Code du salon — à partager</div>
+          <div
+            class="ticket room-code-ticket"
+            style="display: inline-block; margin-top: 8px"
+          >
+            <span class="ticket-code mono" id="lobbyCode">----</span>
+          </div>
+          <div class="copy-hint">Clique sur le code pour le copier</div>
+        </div>
+
+        <div class="lobby-layout">
+          <div class="card">
+            <div class="section-title">Joueurs dans le salon</div>
+            <ul class="player-list" id="lobbyPlayerList"></ul>
+          </div>
+
+          <div class="card">
+            <div class="section-title">Réglages de la partie</div>
+
+            <div id="hostSettings" style="display: none">
+              <div class="settings-grid">
+                <div class="setting-row">
+                  <span class="setting-label">Nombre de rounds</span>
+                  <input
+                    type="range"
+                    id="setRounds"
+                    min="1"
+                    max="10"
+                    value="3"
+                  />
+                  <span class="setting-value" id="valRounds">3</span>
+                </div>
+                <div class="setting-row">
+                  <span class="setting-label">Temps pour dessiner</span>
+                  <input
+                    type="range"
+                    id="setDrawTime"
+                    min="30"
+                    max="180"
+                    step="10"
+                    value="90"
+                  />
+                  <span class="setting-value" id="valDrawTime">90s</span>
+                </div>
+                <div class="setting-row">
+                  <span class="setting-label">Temps pour voter</span>
+                  <input
+                    type="range"
+                    id="setVoteTime"
+                    min="15"
+                    max="60"
+                    step="5"
+                    value="25"
+                  />
+                  <span class="setting-value" id="valVoteTime">25s</span>
+                </div>
+              </div>
+              <button
+                class="btn btn-primary"
+                id="btnStart"
+                style="width: 100%; margin-top: 18px"
+              >
+                Lancer la partie
+              </button>
+              <div class="error-msg center" id="lobbyError"></div>
+            </div>
+
+            <div id="guestSettings">
+              <p class="muted" style="font-size: 14px">
+                L'hôte du salon règle la partie. Voici les réglages actuels :
+              </p>
+              <div class="settings-readonly">
+                <span class="tag" id="roTag1">3 rounds</span>
+                <span class="tag" id="roTag2">90s dessin</span>
+                <span class="tag" id="roTag3">25s vote</span>
+              </div>
+              <p class="waiting-note">En attente que l'hôte lance la partie…</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== COUNTDOWN ===================== -->
+      <section class="screen" id="screen-countdown">
+        <div class="countdown-wrap">
+          <div class="round-pill" id="cdRoundInfo">Round 1 / 3</div>
+          <p class="countdown-subtitle">
+            Mémorise chaque indice avant le début du dessin…
+          </p>
+          <div class="carousel" id="countdownCarousel"></div>
+          <div class="countdown-progress">
+            <div class="countdown-progress-fill" id="cdProgressFill"></div>
+          </div>
+          <div id="arachnidBadgeWrap"></div>
+        </div>
+      </section>
+
+      <!-- ===================== DRAWING ===================== -->
+      <section class="screen" id="screen-drawing">
+        <div class="game-header">
+          <div class="round-pill" id="drawRoundInfo">Round 1 / 3</div>
+          <div class="timer-pill" id="drawTimer">90</div>
+          <div class="progress-pill" id="drawProgress">0/0 sont prêts</div>
+        </div>
+
+        <div class="draw-layout">
+          <div class="ticket specimen-card">
+            <div class="section-title" style="color: var(--coral-dim)">
+              Fiche du spécimen
+            </div>
+            <div class="carousel" id="drawingCarousel"></div>
+          </div>
+
+          <div class="canvas-wrap" id="canvasWrap">
+            <canvas id="drawCanvas" width="900" height="560"></canvas>
+            <div class="toolbar">
+              <div class="swatches" id="swatches"></div>
+              <input
+                type="color"
+                id="colorPicker"
+                value="#17231b"
+                title="Couleur personnalisée"
+                style="
+                  width: 30px;
+                  height: 30px;
+                  border: none;
+                  background: none;
+                  padding: 0;
+                "
+              />
+              <div class="tool-group">
+                <label for="brushSize">Taille</label>
+                <input type="range" id="brushSize" min="2" max="26" value="6" />
+              </div>
+              <button class="icon-btn" id="btnEraser" title="Gomme">
+                🩹 Gomme
+              </button>
+              <button class="icon-btn" id="btnFill" title="Pot de peinture">
+                🪣 Remplir
+              </button>
+              <button class="icon-btn" id="btnUndo" title="Annuler">
+                ↩ Annuler
+              </button>
+              <button class="icon-btn" id="btnRedo" title="Refaire">
+                ↪ Refaire
+              </button>
+              <button class="icon-btn" id="btnClear" title="Tout effacer">
+                🗑 Effacer
+              </button>
+            </div>
+            <div class="submit-row">
+              <button class="btn btn-primary" id="btnSubmitDrawing">
+                Envoyer mon dessin ✅
+              </button>
+            </div>
+            <div
+              class="waiting-note"
+              id="drawWaitingNote"
+              style="display: none"
+            >
+              Dessin envoyé — en attente des autres joueurs…
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== VOTING ===================== -->
+      <section class="screen" id="screen-voting">
+        <div class="game-header">
+          <div class="round-pill" id="voteRoundInfo">Round 1 / 3</div>
+          <div class="timer-pill" id="voteTimer">25</div>
+          <div class="progress-pill" id="voteProgress">0/0 ont voté</div>
+        </div>
+        <h2 class="center" style="margin-bottom: 4px">
+          Quel spécimen préfères-tu ?
+        </h2>
+        <p class="center muted" style="font-size: 14px">
+          Clique sur un dessin pour voter (tu ne peux pas voter pour le tien).
+        </p>
+        <div class="gallery" id="votingGallery"></div>
+        <div class="vote-note" id="voteNote"></div>
+      </section>
+
+      <!-- ===================== REVEAL ===================== -->
+      <section class="screen" id="screen-reveal">
+        <h2 class="center" id="revealTitle">Résultats du round</h2>
+        <div class="reveal-layout">
+          <div class="gallery" id="revealGallery"></div>
+          <div class="card">
+            <div class="section-title">Classement</div>
+            <div class="scoreboard" id="revealScoreboard"></div>
+          </div>
+        </div>
+        <div class="host-actions" id="revealHostActions" style="display: none">
+          <button class="btn btn-primary" id="btnNextRound">
+            Round suivant →
+          </button>
+        </div>
+        <div class="waiting-host" id="revealWaitingHost" style="display: none">
+          En attente de l'hôte pour continuer…
+        </div>
+      </section>
+
+      <!-- ===================== GAME OVER ===================== -->
+      <section class="screen" id="screen-gameover">
+        <h2 class="center">Classement final</h2>
+        <div class="podium" id="podium"></div>
+        <div class="card" style="max-width: 420px; margin: 20px auto 0">
+          <div class="section-title">Tableau complet</div>
+          <div class="scoreboard" id="finalScoreboard"></div>
+        </div>
+        <div class="final-actions">
+          <button
+            class="btn btn-primary"
+            id="btnPlayAgain"
+            style="display: none"
+          >
+            Rejouer avec ce salon
+          </button>
+          <button class="btn btn-ghost" id="btnQuit">Quitter le salon</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      'use strict';
+
+      const socket = io();
+
+      /* ============================================================
+   État client
+   ============================================================ */
+      const state = {
+        code: null,
+        yourId: null,
+        isHost: false,
+        settings: { rounds: 3, drawTime: 90, voteTime: 25 },
+        players: [],
+        round: 0,
+        totalRounds: 0,
+        hasSubmitted: false,
+        drawingLocked: false, // true = dessin verrouillé (envoyé), false = en cours d'édition
+        roundTimeUp: false, // true = le chrono du round est écoulé, plus aucune modification possible
+        hasVoted: false,
+        drawTickHandle: null,
+        voteTickHandle: null,
+      };
+
+      /* ============================================================
+   Navigation entre écrans
+   ============================================================ */
+      const screens = {};
+      document.querySelectorAll('.screen').forEach((el) => {
+        screens[el.id] = el;
+      });
+      function showScreen(id) {
+        Object.values(screens).forEach((el) => el.classList.remove('active'));
+        screens[id].classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      /* ============================================================
+   Toasts
+   ============================================================ */
+      function showToast(message) {
+        const el = document.createElement('div');
+        el.className = 'toast';
+        el.textContent = message;
+        document.getElementById('toast-container').appendChild(el);
+        setTimeout(() => el.remove(), 2800);
+      }
+
+      /* ============================================================
+   ÉCRAN ACCUEIL
+   ============================================================ */
+      const pseudoInput = document.getElementById('pseudoInput');
+      const homeError = document.getElementById('homeError');
+      const joinRow = document.getElementById('joinRow');
+      const codeDigitInputs = Array.from(
+        document.querySelectorAll('.code-digit')
+      );
+
+      function getCodeFromDigits() {
+        return codeDigitInputs.map((el) => el.value).join('');
+      }
+      function focusDigit(index) {
+        const el = codeDigitInputs[index];
+        if (!el) return;
+        el.focus();
+        el.select();
+      }
+      function setDigitValue(el, char) {
+        el.value = char;
+        el.classList.toggle('filled', char.length > 0);
+      }
+
+      document.getElementById('btnShowJoin').addEventListener('click', () => {
+        joinRow.classList.toggle('active');
+        if (joinRow.classList.contains('active')) focusDigit(0);
+      });
+
+      document.getElementById('btnCreate').addEventListener('click', () => {
+        homeError.textContent = '';
+        socket.emit('create_room', { name: pseudoInput.value });
+      });
+
+      document.getElementById('btnJoin').addEventListener('click', () => {
+        homeError.textContent = '';
+        const code = getCodeFromDigits();
+        if (code.length !== 4) {
+          homeError.textContent = 'Le code fait 4 caractères.';
+          return;
+        }
+        socket.emit('join_room', { name: pseudoInput.value, code });
+      });
+
+      codeDigitInputs.forEach((input, index) => {
+        // Un caractère valide tapé -> case suivante, focus automatique.
+        input.addEventListener('input', () => {
+          const clean = input.value
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '')
+            .slice(0, 1);
+          setDigitValue(input, clean);
+          homeError.textContent = '';
+          if (clean && index < codeDigitInputs.length - 1)
+            focusDigit(index + 1);
+        });
+
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            document.getElementById('btnJoin').click();
+          } else if (e.key === 'Backspace' && !input.value && index > 0) {
+            // Case vide + retour arrière -> on efface la case précédente et on y retourne.
+            e.preventDefault();
+            setDigitValue(codeDigitInputs[index - 1], '');
+            focusDigit(index - 1);
+          } else if (e.key === 'ArrowLeft' && index > 0) {
+            e.preventDefault();
+            focusDigit(index - 1);
+          } else if (
+            e.key === 'ArrowRight' &&
+            index < codeDigitInputs.length - 1
+          ) {
+            e.preventDefault();
+            focusDigit(index + 1);
+          }
+        });
+
+        // Coller un code entier depuis n'importe quelle case -> remplit depuis la première.
+        input.addEventListener('paste', (e) => {
+          e.preventDefault();
+          const pasted = (e.clipboardData || window.clipboardData).getData(
+            'text'
+          );
+          const clean = pasted
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '')
+            .slice(0, codeDigitInputs.length);
+          codeDigitInputs.forEach((el, i) => setDigitValue(el, clean[i] || ''));
+          homeError.textContent = '';
+          focusDigit(Math.min(clean.length, codeDigitInputs.length - 1));
+        });
+      });
+
+      pseudoInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('btnCreate').click();
+      });
+
+      socket.on('room_error', ({ message }) => {
+        homeError.textContent = message;
+        showToast(message);
+      });
+
+      /* ============================================================
+   ÉCRAN LOBBY
+   ============================================================ */
+      const lobbyCodeEl = document.getElementById('lobbyCode');
+      lobbyCodeEl.parentElement.addEventListener('click', () => {
+        const ticket = lobbyCodeEl.parentElement;
+        navigator.clipboard?.writeText(state.code).then(() => {
+          showToast('Code copié !');
+          ticket.classList.remove('copied');
+          void ticket.offsetWidth; // force le reflow pour pouvoir rejouer l'animation à chaque clic
+          ticket.classList.add('copied');
+          setTimeout(() => ticket.classList.remove('copied'), 450);
+        });
+      });
+
+      function renderPlayerList(targetUlId) {
+        const ul = document.getElementById(targetUlId);
+        ul.innerHTML = '';
+        state.players.forEach((p) => {
+          const li = document.createElement('li');
+          li.className = 'player-row' + (p.connected ? '' : ' offline');
+          li.innerHTML = `
+      <span class="dot"></span>
+      <span class="pname">${escapeHtml(p.name)}${
+            p.id === state.yourId ? '<span class="you-badge">TOI</span>' : ''
+          }</span>
+      ${p.isHost ? '<span class="crown">👑</span>' : ''}
+      <span class="pscore">${p.score} pts</span>
+    `;
+          ul.appendChild(li);
+        });
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function updateRangeFill(input) {
+        const min = parseFloat(input.min) || 0;
+        const max = parseFloat(input.max) || 100;
+        const val = parseFloat(input.value);
+        const pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
+        input.style.setProperty('--range-progress', pct + '%');
+      }
+      document.querySelectorAll('input[type="range"]').forEach((input) => {
+        updateRangeFill(input);
+        input.addEventListener('input', () => updateRangeFill(input));
+      });
+
+      function applySettingsToLobbyUI() {
+        document.getElementById('setRounds').value = state.settings.rounds;
+        document.getElementById('valRounds').textContent =
+          state.settings.rounds;
+        document.getElementById('setDrawTime').value = state.settings.drawTime;
+        document.getElementById('valDrawTime').textContent =
+          state.settings.drawTime + 's';
+        document.getElementById('setVoteTime').value = state.settings.voteTime;
+        document.getElementById('valVoteTime').textContent =
+          state.settings.voteTime + 's';
+        ['setRounds', 'setDrawTime', 'setVoteTime'].forEach((id) =>
+          updateRangeFill(document.getElementById(id))
+        );
+
+        document.getElementById('roTag1').textContent =
+          state.settings.rounds + ' rounds';
+        document.getElementById('roTag2').textContent =
+          state.settings.drawTime + 's dessin';
+        document.getElementById('roTag3').textContent =
+          state.settings.voteTime + 's vote';
+      }
+
+      ['setRounds', 'setDrawTime', 'setVoteTime'].forEach((id) => {
+        document.getElementById(id).addEventListener('input', () => {
+          const rounds = document.getElementById('setRounds').value;
+          const drawTime = document.getElementById('setDrawTime').value;
+          const voteTime = document.getElementById('setVoteTime').value;
+          document.getElementById('valRounds').textContent = rounds;
+          document.getElementById('valDrawTime').textContent = drawTime + 's';
+          document.getElementById('valVoteTime').textContent = voteTime + 's';
+          socket.emit('update_settings', { rounds, drawTime, voteTime });
+        });
+      });
+
+      document.getElementById('btnStart').addEventListener('click', () => {
+        document.getElementById('lobbyError').textContent = '';
+        socket.emit('start_game');
+      });
+
+      function enterLobby() {
+        lobbyCodeEl.textContent = state.code;
+        document.getElementById('hostSettings').style.display = state.isHost
+          ? 'block'
+          : 'none';
+        document.getElementById('guestSettings').style.display = state.isHost
+          ? 'none'
+          : 'block';
+        applySettingsToLobbyUI();
+        renderPlayerList('lobbyPlayerList');
+        showScreen('screen-lobby');
+      }
+
+      socket.on('room_joined', (payload) => {
+        state.code = payload.code;
+        state.yourId = payload.yourId;
+        state.isHost = payload.isHost;
+        state.settings = payload.settings;
+        state.players = payload.players;
+        enterLobby();
+      });
+
+      socket.on('players_update', ({ players }) => {
+        state.players = players;
+        const me = players.find((p) => p.id === state.yourId);
+        if (me) state.isHost = me.isHost;
+        if (screens['screen-lobby'].classList.contains('active')) enterLobby();
+      });
+
+      socket.on('settings_update', ({ settings }) => {
+        state.settings = settings;
+        if (screens['screen-lobby'].classList.contains('active'))
+          applySettingsToLobbyUI();
+      });
+
+      socket.on('toast', ({ message }) => showToast(message));
+
+      socket.on('return_to_lobby', ({ settings, players }) => {
+        state.settings = settings;
+        state.players = players;
+        enterLobby();
+      });
+
+      /* ============================================================
+   COUNTDOWN + fiche du spécimen
+   ============================================================ */
+      let currentGroups = [];
+      let countdownCarouselCtrl = null;
+
+      socket.on(
+        'round_countdown',
+        ({ round, totalRounds, groups, hasArachnid, countdownMs }) => {
+          state.round = round;
+          state.totalRounds = totalRounds;
+          state.hasSubmitted = false;
+          state.drawingLocked = false;
+          state.roundTimeUp = false;
+          state.hasVoted = false;
+          currentGroups = groups;
+
+          document.getElementById(
+            'cdRoundInfo'
+          ).textContent = `Round ${round} / ${totalRounds}`;
+
+          const arachWrap = document.getElementById('arachnidBadgeWrap');
+          arachWrap.innerHTML = hasArachnid
+            ? `<p class="arachnid-note">🕷️ Contient des petites bêtes à plusieurs pattes</p>`
+            : '';
+
+          if (countdownCarouselCtrl) countdownCarouselCtrl.stop();
+          countdownCarouselCtrl = buildCarousel(
+            document.getElementById('countdownCarousel'),
+            groups,
+            {
+              autoplay: true,
+              intervalMs: countdownMs / groups.length,
+            }
+          );
+
+          showScreen('screen-countdown');
+          runCountdownProgress(countdownMs);
+        }
+      );
+
+      function runCountdownProgress(ms) {
+        const fill = document.getElementById('cdProgressFill');
+        fill.style.transition = 'none';
+        fill.style.width = '0%';
+        // Deux requestAnimationFrame pour être sûr que le "width:0%" est bien appliqué
+        // avant de démarrer la transition vers 100% (sinon le navigateur peut sauter l'étape).
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            fill.style.transition = `width ${ms}ms linear`;
+            fill.style.width = '100%';
+          });
+        });
+      }
+
+      /* ============================================================
+   Carrousel de la fiche spécimen : une catégorie par slide, avec
+   sa photo de référence. Utilisé sur l'écran de countdown
+   (défilement automatique) et pendant le dessin (navigation
+   manuelle) — toujours avec une transition de glissement fluide.
+   ============================================================ */
+      const CAROUSEL_TRANSITION_MS = 250;
+      const CAROUSEL_EASING = 'cubic-bezier(1,.22,.46,.77)';
+      const CAROUSEL_GAP_PX = 14; // doit correspondre au "gap" défini sur .carousel-track en CSS
+
+      function buildCarousel(containerEl, groups, options = {}) {
+        const { autoplay = false, intervalMs = 1200 } = options;
+        let idx = 0;
+        let autoplayHandle = null;
+        let animating = false;
+
+        containerEl.innerHTML = `
+    <div class="carousel-viewport"><div class="carousel-track"></div></div>
+    <div class="carousel-nav">
+      ${
+        autoplay
+          ? ''
+          : `<button class="carousel-arrow" type="button" data-dir="-1" aria-label="Précédent">‹</button>`
+      }
+      <div class="carousel-dots"></div>
+      ${
+        autoplay
+          ? ''
+          : `<button class="carousel-arrow" type="button" data-dir="1" aria-label="Suivant">›</button>`
+      }
+    </div>
+    ${autoplay ? '' : `<div class="carousel-counter"></div>`}
+  `;
+
+        const track = containerEl.querySelector('.carousel-track');
+        const dotsWrap = containerEl.querySelector('.carousel-dots');
+        const counterEl = containerEl.querySelector('.carousel-counter');
+
+        function renderItemCell(item) {
+          const noPhoto = !item.image ? ' no-photo' : '';
+          return `
+      <div class="item-cell${noPhoto}">
+        ${
+          item.image
+            ? `
+          <img class="carousel-photo" src="${item.image}" alt="${escapeHtml(
+                item.value
+              )}"
+               data-fallback="${item.imageFallback || ''}" />
+        `
+            : ''
+        }
+        <div class="carousel-placeholder">
+          <span>${item.key === 'extras' ? '✨' : '🐾'}</span>
+          <span class="ph-text">photo à venir</span>
+        </div>
+        <div class="item-caption">
+          <span class="item-label">${escapeHtml(item.label)}</span>
+          <span class="item-value">${escapeHtml(item.value)}</span>
+        </div>
+      </div>
+    `;
+        }
+
+        function cardMarkup(g) {
+          return `<div class="carousel-card">
+      ${
+        g.items.length > 1
+          ? `<div class="carousel-group-title">${escapeHtml(g.title)}</div>`
+          : ''
+      }
+      <div class="item-row">${g.items.map(renderItemCell).join('')}</div>
+    </div>`;
+        }
+
+        function attachPhotoFallback(root) {
+          root.querySelectorAll('.carousel-photo').forEach((img) => {
+            img.addEventListener('error', () => {
+              if (img.dataset.fallback) {
+                const fallback = img.dataset.fallback;
+                img.dataset.fallback = '';
+                img.src = fallback;
+              } else {
+                img.closest('.item-cell').classList.add('no-photo');
+              }
+            });
+          });
+        }
+
+        function renderNav() {
+          dotsWrap.innerHTML = groups
+            .map(
+              (_, i) =>
+                `<button class="dot${
+                  i === idx ? ' active' : ''
+                }" type="button" data-goto="${i}" aria-label="Groupe ${i + 1}"${
+                  autoplay ? ' disabled' : ''
+                }></button>`
+            )
+            .join('');
+          if (counterEl)
+            counterEl.textContent = `${idx + 1} / ${groups.length}`;
+          if (!autoplay) {
+            dotsWrap.querySelectorAll('.dot').forEach((dot) => {
+              dot.addEventListener('click', () => {
+                const target = parseInt(dot.dataset.goto, 10);
+                goTo(target, target > idx ? 1 : -1);
+              });
+            });
+          }
+        }
+
+        function goTo(newIdx, direction) {
+          if (
+            animating ||
+            newIdx === idx ||
+            newIdx < 0 ||
+            newIdx >= groups.length
+          )
+            return;
+          animating = true;
+
+          const shifted = `calc(-100% - ${CAROUSEL_GAP_PX}px)`;
+
+          const oldCard = track.querySelector('.carousel-card');
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = cardMarkup(groups[newIdx]).trim();
+          const newCard = wrapper.firstElementChild;
+          attachPhotoFallback(newCard);
+
+          if (direction === 1) {
+            track.style.transition = 'none';
+            track.style.transform = 'translateX(0%)';
+            track.appendChild(newCard);
+          } else {
+            track.style.transition = 'none';
+            track.insertBefore(newCard, oldCard);
+            track.style.transform = `translateX(${shifted})`;
+          }
+          void track.offsetWidth; // force le reflow avant d'animer
+
+          requestAnimationFrame(() => {
+            track.style.transition = `transform ${CAROUSEL_TRANSITION_MS}ms ${CAROUSEL_EASING}`;
+            track.style.transform =
+              direction === 1 ? `translateX(${shifted})` : 'translateX(0%)';
+          });
+
+          idx = newIdx;
+          renderNav();
+
+          setTimeout(() => {
+            oldCard.remove();
+            track.style.transition = 'none';
+            track.style.transform = 'translateX(0%)';
+            animating = false;
+          }, CAROUSEL_TRANSITION_MS + 20);
+        }
+
+        // Rendu initial (sans transition)
+        track.innerHTML = cardMarkup(groups[idx]);
+        attachPhotoFallback(track);
+        renderNav();
+
+        if (!autoplay) {
+          containerEl.querySelectorAll('.carousel-arrow').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const dir = parseInt(btn.dataset.dir, 10);
+              const target = (idx + dir + groups.length) % groups.length;
+              goTo(target, dir);
+            });
+          });
+        }
+
+        if (autoplay) {
+          autoplayHandle = setInterval(() => {
+            if (idx + 1 >= groups.length) {
+              clearInterval(autoplayHandle);
+              return;
+            }
+            goTo(idx + 1, 1);
+          }, intervalMs);
+        }
+
+        return {
+          stop() {
+            clearInterval(autoplayHandle);
+          },
+        };
+      }
+
+      /* ============================================================
+   ÉCRAN DESSIN — canvas
+   ============================================================ */
+      const canvas = document.getElementById('drawCanvas');
+      const ctx = canvas.getContext('2d');
+      let drawing = false;
+      let lastX = 0,
+        lastY = 0;
+      let currentColor = '#17231b';
+      let currentTool = 'brush'; // 'brush' | 'eraser' | 'fill'
+      let undoStack = [];
+      let redoStack = [];
+      const MAX_UNDO_STEPS = 100;
+
+      function fillWhite() {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      function updateUndoRedoButtons() {
+        document.getElementById('btnUndo').disabled = undoStack.length <= 1;
+        document.getElementById('btnRedo').disabled = redoStack.length === 0;
+      }
+
+      function pushUndoSnapshot() {
+        const snapshot = canvas.toDataURL();
+        undoStack.push(snapshot);
+        if (undoStack.length > MAX_UNDO_STEPS) undoStack.shift();
+        redoStack = []; // toute nouvelle action invalide le "refaire"
+        updateUndoRedoButtons();
+        autosaveDrawing(snapshot);
+      }
+
+      // Utilisé uniquement au début d'un nouveau round : table rase, y compris l'historique.
+      function resetCanvas() {
+        fillWhite();
+        undoStack = [];
+        redoStack = [];
+        pushUndoSnapshot();
+      }
+
+      // Utilisé par le bouton "Effacer" : la toile redevient blanche, mais l'action
+      // reste annulable (elle rejoint l'historique au lieu de le vider).
+      function clearCanvasKeepingHistory() {
+        if (state.drawingLocked) return;
+        fillWhite();
+        pushUndoSnapshot();
+      }
+
+      function renderCanvasFromDataURL(dataURL) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = dataURL;
+      }
+
+      // Sauvegarde silencieuse envoyée au serveur à chaque changement du dessin
+      // (trait, remplissage, annuler, refaire). Ainsi, même si le joueur ne
+      // clique jamais sur "Envoyer", le serveur dispose déjà d'une version très
+      // récente du dessin quand son propre chrono arrive à zéro — on ne dépend
+      // plus d'un message de toute dernière seconde qui pourrait arriver trop
+      // tard (le chrono du serveur se déclenche généralement avant celui du
+      // client, à cause de la latence réseau).
+      function autosaveDrawing(dataURL) {
+        if (state.roundTimeUp) return;
+        socket.emit('submit_drawing', { dataURL, final: false });
+      }
+
+      function undo() {
+        if (state.drawingLocked || undoStack.length <= 1) return;
+        const popped = undoStack.pop();
+        redoStack.push(popped);
+        const restored = undoStack[undoStack.length - 1];
+        renderCanvasFromDataURL(restored);
+        updateUndoRedoButtons();
+        autosaveDrawing(restored);
+      }
+
+      function redo() {
+        if (state.drawingLocked || redoStack.length === 0) return;
+        const nextState = redoStack.pop();
+        undoStack.push(nextState);
+        renderCanvasFromDataURL(nextState);
+        updateUndoRedoButtons();
+        autosaveDrawing(nextState);
+      }
+
+      function canvasPointFromEvent(evt) {
+        const rect = canvas.getBoundingClientRect();
+        const point = evt.touches ? evt.touches[0] : evt;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return {
+          x: (point.clientX - rect.left) * scaleX,
+          y: (point.clientY - rect.top) * scaleY,
+        };
+      }
+
+      /* ---------- Pot de peinture (remplissage par zone) ---------- */
+      function hexToRgb(hex) {
+        const clean = hex.replace('#', '');
+        return {
+          r: parseInt(clean.substring(0, 2), 16),
+          g: parseInt(clean.substring(2, 4), 16),
+          b: parseInt(clean.substring(4, 6), 16),
+        };
+      }
+
+      function floodFill(startX, startY, fillHex) {
+        const w = canvas.width,
+          h = canvas.height;
+        const sx = Math.floor(startX),
+          sy = Math.floor(startY);
+        if (sx < 0 || sy < 0 || sx >= w || sy >= h) return false;
+
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const data = imageData.data;
+        const fill = hexToRgb(fillHex);
+        const tolerance = 32; // tolère l'anti-crénelage des traits existants
+
+        const startPos = (sy * w + sx) * 4;
+        const startR = data[startPos],
+          startG = data[startPos + 1],
+          startB = data[startPos + 2],
+          startA = data[startPos + 3];
+
+        if (
+          Math.abs(startR - fill.r) <= 2 &&
+          Math.abs(startG - fill.g) <= 2 &&
+          Math.abs(startB - fill.b) <= 2 &&
+          startA === 255
+        ) {
+          return false; // déjà de la bonne couleur, rien à faire
+        }
+
+        function matches(i) {
+          return (
+            Math.abs(data[i] - startR) <= tolerance &&
+            Math.abs(data[i + 1] - startG) <= tolerance &&
+            Math.abs(data[i + 2] - startB) <= tolerance &&
+            Math.abs(data[i + 3] - startA) <= tolerance
+          );
+        }
+
+        const visited = new Uint8Array(w * h);
+        const stack = [[sx, sy]];
+
+        while (stack.length) {
+          const [x, y] = stack.pop();
+          if (x < 0 || y < 0 || x >= w || y >= h) continue;
+          const pos = y * w + x;
+          if (visited[pos]) continue;
+          const i = pos * 4;
+          if (!matches(i)) continue;
+          visited[pos] = 1;
+          data[i] = fill.r;
+          data[i + 1] = fill.g;
+          data[i + 2] = fill.b;
+          data[i + 3] = 255;
+          stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        return true;
+      }
+
+      /* ---------- Dessin au pinceau / gomme ---------- */
+      function startDraw(evt) {
+        if (state.drawingLocked) return;
+        evt.preventDefault();
+        const { x, y } = canvasPointFromEvent(evt);
+
+        if (currentTool === 'fill') {
+          if (floodFill(x, y, currentColor)) pushUndoSnapshot();
+          return;
+        }
+
+        drawing = true;
+        lastX = x;
+        lastY = y;
+        ctx.beginPath();
+        ctx.arc(x, y, currentBrushSize() / 2, 0, Math.PI * 2);
+        ctx.fillStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
+        ctx.fill();
+      }
+      function moveDraw(evt) {
+        if (!drawing || state.drawingLocked) return;
+        evt.preventDefault();
+        const { x, y } = canvasPointFromEvent(evt);
+        ctx.strokeStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
+        ctx.lineWidth = currentBrushSize();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        lastX = x;
+        lastY = y;
+      }
+      function endDraw() {
+        if (!drawing) return;
+        drawing = false;
+        pushUndoSnapshot();
+      }
+
+      canvas.addEventListener('mousedown', startDraw);
+      canvas.addEventListener('mousemove', moveDraw);
+      window.addEventListener('mouseup', endDraw);
+      canvas.addEventListener('touchstart', startDraw, { passive: false });
+      canvas.addEventListener('touchmove', moveDraw, { passive: false });
+      canvas.addEventListener('touchend', endDraw);
+
+      function currentBrushSize() {
+        return parseInt(document.getElementById('brushSize').value, 10);
+      }
+
+      function setTool(tool) {
+        currentTool = tool;
+        document
+          .getElementById('btnEraser')
+          .classList.toggle('active', tool === 'eraser');
+        document
+          .getElementById('btnFill')
+          .classList.toggle('active', tool === 'fill');
+        canvas.classList.toggle('tool-fill', tool === 'fill');
+      }
+
+      const PALETTE = [
+        '#17231b',
+        '#ffffff',
+        '#ff6b54',
+        '#f2b84b',
+        '#4fb6a8',
+        '#3d5a80',
+        '#8a4fd1',
+        '#e34f8f',
+      ];
+      const swatchesWrap = document.getElementById('swatches');
+      PALETTE.forEach((color) => {
+        const btn = document.createElement('button');
+        btn.className = 'swatch' + (color === currentColor ? ' active' : '');
+        btn.style.background = color;
+        btn.title = color;
+        btn.addEventListener('click', () => {
+          currentColor = color;
+          setTool('brush');
+          document
+            .querySelectorAll('.swatch')
+            .forEach((s) => s.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById('colorPicker').value = rgbToHex(color);
+        });
+        swatchesWrap.appendChild(btn);
+      });
+      function rgbToHex(c) {
+        return c.startsWith('#') ? c : '#17231b';
+      }
+
+      document.getElementById('colorPicker').addEventListener('input', (e) => {
+        currentColor = e.target.value;
+        setTool('brush');
+        document
+          .querySelectorAll('.swatch')
+          .forEach((s) => s.classList.remove('active'));
+      });
+
+      document.getElementById('btnEraser').addEventListener('click', () => {
+        setTool(currentTool === 'eraser' ? 'brush' : 'eraser');
+      });
+
+      document.getElementById('btnFill').addEventListener('click', () => {
+        setTool(currentTool === 'fill' ? 'brush' : 'fill');
+      });
+
+      document.getElementById('btnUndo').addEventListener('click', undo);
+      document.getElementById('btnRedo').addEventListener('click', redo);
+
+      document
+        .getElementById('btnClear')
+        .addEventListener('click', clearCanvasKeepingHistory);
+
+      document
+        .getElementById('btnSubmitDrawing')
+        .addEventListener('click', () => {
+          if (state.roundTimeUp) return;
+          if (state.drawingLocked) {
+            unlockDrawing();
+          } else {
+            lockDrawing(true);
+          }
+        });
+
+      // Verrouille le dessin (canvas + outils désactivés) et, si demandé, envoie
+      // l'état actuel du canevas au serveur comme soumission définitive. Utilisé
+      // aussi bien pour le clic explicite sur "Envoyer" que pour le verrouillage
+      // automatique à la fin du chrono.
+      function lockDrawing(sendToServer) {
+        state.drawingLocked = true;
+        if (sendToServer) {
+          state.hasSubmitted = true;
+          socket.emit('submit_drawing', {
+            dataURL: canvas.toDataURL('image/png'),
+            final: true,
+          });
+        }
+        updateSubmitButtonUI();
+      }
+
+      function unlockDrawing() {
+        if (state.roundTimeUp) return;
+        state.drawingLocked = false;
+        socket.emit('unlock_drawing');
+        updateSubmitButtonUI();
+      }
+
+      function updateSubmitButtonUI() {
+        const btn = document.getElementById('btnSubmitDrawing');
+        const note = document.getElementById('drawWaitingNote');
+        document
+          .getElementById('canvasWrap')
+          .classList.toggle('locked', state.drawingLocked);
+
+        if (state.roundTimeUp) {
+          btn.textContent = 'Temps écoulé';
+          btn.disabled = true;
+          note.textContent = 'Dessin envoyé — en attente des autres joueurs…';
+          note.style.display = 'block';
+          return;
+        }
+
+        btn.disabled = false;
+        if (state.drawingLocked) {
+          btn.textContent = 'Modifier mon dessin ✏️';
+          note.textContent =
+            'Dessin envoyé — clique pour le retoucher avant la fin du chrono.';
+          note.style.display = 'block';
+        } else {
+          btn.textContent = 'Envoyer mon dessin ✅';
+          note.style.display = 'none';
+        }
+      }
+
+      socket.on('round_start', ({ round, totalRounds, drawTimeMs }) => {
+        state.round = round;
+        state.totalRounds = totalRounds;
+        state.hasSubmitted = false;
+        state.drawingLocked = false;
+        state.roundTimeUp = false;
+        document.getElementById(
+          'drawRoundInfo'
+        ).textContent = `Round ${round} / ${totalRounds}`;
+        document.getElementById(
+          'drawProgress'
+        ).textContent = `0/${connectedCount()} sont prêts`;
+        updateSubmitButtonUI();
+        setTool('brush');
+        buildCarousel(
+          document.getElementById('drawingCarousel'),
+          currentGroups
+        );
+        resetCanvas();
+        showScreen('screen-drawing');
+        // À la fin du chrono, on envoie le dessin tel qu'il est, verrouillé,
+        // qu'il ait été explicitement soumis ou non.
+        startTimer('drawTimer', drawTimeMs, () => {
+          state.roundTimeUp = true;
+          lockDrawing(true);
+        });
+      });
+
+      socket.on('submission_progress', ({ submitted, total }) => {
+        document.getElementById(
+          'drawProgress'
+        ).textContent = `${submitted}/${total} sont prêts`;
+      });
+
+      function connectedCount() {
+        return state.players.filter((p) => p.connected).length;
+      }
+
+      /* ============================================================
+   Minuteur générique (dessin / vote)
+   ============================================================ */
+      function startTimer(elId, durationMs, onZero) {
+        const el = document.getElementById(elId);
+        clearInterval(state[elId + '_handle']);
+        const start = Date.now();
+        function tick() {
+          const remaining = Math.max(0, durationMs - (Date.now() - start));
+          const secs = Math.ceil(remaining / 1000);
+          el.textContent = secs;
+          el.classList.toggle('low', secs <= 10);
+          if (remaining <= 0) {
+            clearInterval(state[elId + '_handle']);
+            onZero && onZero();
+          }
+        }
+        tick();
+        state[elId + '_handle'] = setInterval(tick, 250);
+      }
+
+      /* ============================================================
+   ÉCRAN VOTE
+   ============================================================ */
+      socket.on('voting_start', ({ voteTimeMs, drawings }) => {
+        state.hasVoted = false;
+        document.getElementById(
+          'voteRoundInfo'
+        ).textContent = `Round ${state.round} / ${state.totalRounds}`;
+        document.getElementById(
+          'voteProgress'
+        ).textContent = `0/${connectedCount()} ont voté`;
+        document.getElementById('voteNote').textContent = '';
+
+        const gallery = document.getElementById('votingGallery');
+        gallery.innerHTML = '';
+        drawings.forEach((d) => {
+          const frame = document.createElement('div');
+          frame.className = 'spec-frame' + (d.isMine ? ' disabled' : '');
+          frame.innerHTML = `
+      <img src="${d.dataURL}" alt="Spécimen ${d.displayIndex}" />
+      <div class="tag frame-tag">${
+        d.isMine ? "C'est le tien" : 'Spécimen n°' + d.displayIndex
+      }</div>
+    `;
+          if (!d.isMine) {
+            frame.addEventListener('click', () =>
+              castVote(d.displayIndex, frame)
+            );
+          }
+          gallery.appendChild(frame);
+        });
+
+        showScreen('screen-voting');
+        startTimer('voteTimer', voteTimeMs, () => {});
+      });
+
+      function castVote(displayIndex, frameEl) {
+        if (state.hasVoted) return;
+        state.hasVoted = true;
+        socket.emit('cast_vote', { targetDisplayIndex: displayIndex });
+        document
+          .querySelectorAll('.spec-frame')
+          .forEach((f) => f.classList.add('disabled'));
+        frameEl.classList.add('selected');
+        document.getElementById('voteNote').textContent =
+          'Vote enregistré ! En attente des autres joueurs…';
+      }
+
+      socket.on('vote_progress', ({ voted, total }) => {
+        document.getElementById(
+          'voteProgress'
+        ).textContent = `${voted}/${total} ont voté`;
+      });
+
+      /* ============================================================
+   ÉCRAN RÉVÉLATION
+   ============================================================ */
+      socket.on(
+        'reveal',
+        ({ round, totalRounds, results, scoreboard, isLastRound }) => {
+          clearInterval(state['voteTimer_handle']);
+          document.getElementById(
+            'revealTitle'
+          ).textContent = `Résultats du round ${round} / ${totalRounds}`;
+
+          const gallery = document.getElementById('revealGallery');
+          gallery.innerHTML = results
+            .map(
+              (r) => `
+    <div class="spec-frame disabled">
+      ${r.isTopVoted ? '<div class="crown-flag">👑</div>' : ''}
+      <div class="ribbon">${r.votes}</div>
+      <img src="${r.dataURL}" alt="Dessin de ${escapeHtml(r.name)}" />
+      <div class="tag frame-tag">${escapeHtml(r.name)}${
+                r.authorId === state.yourId ? ' (toi)' : ''
+              }</div>
+    </div>
+  `
+            )
+            .join('');
+
+          renderScoreboardList('revealScoreboard', scoreboard);
+
+          const hostActions = document.getElementById('revealHostActions');
+          const waitingHost = document.getElementById('revealWaitingHost');
+          hostActions.style.display = state.isHost ? 'flex' : 'none';
+          waitingHost.style.display = state.isHost ? 'none' : 'block';
+          document.getElementById('btnNextRound').textContent = isLastRound
+            ? 'Voir le classement final →'
+            : 'Round suivant →';
+
+          showScreen('screen-reveal');
+        }
+      );
+
+      function renderScoreboardList(elId, list) {
+        const el = document.getElementById(elId);
+        el.innerHTML = list
+          .map(
+            (p, i) => `
+    <div class="score-row">
+      <span class="rank">${i + 1}.</span>
+      <span class="sname">${escapeHtml(p.name)}${
+              p.id === state.yourId ? ' (toi)' : ''
+            }${p.connected === false ? ' 💤' : ''}</span>
+      <span class="spts">${p.score} pts</span>
+    </div>
+  `
+          )
+          .join('');
+      }
+
+      document.getElementById('btnNextRound').addEventListener('click', () => {
+        socket.emit('next_round');
+      });
+
+      /* ============================================================
+   ÉCRAN GAME OVER
+   ============================================================ */
+      socket.on('game_over', ({ scoreboard, podium }) => {
+        const medals = ['🥇', '🥈', '🥉'];
+        const order = ['first', 'second', 'third'];
+        const podiumEl = document.getElementById('podium');
+        podiumEl.innerHTML = podium
+          .map(
+            (p, i) => `
+    <div class="podium-step ${order[i]}">
+      <div class="podium-medal">${medals[i]}</div>
+      <div class="podium-name">${escapeHtml(p.name)}</div>
+      <div class="podium-score">${p.score} pts</div>
+    </div>
+  `
+          )
+          .join('');
+
+        renderScoreboardList('finalScoreboard', scoreboard);
+        document.getElementById('btnPlayAgain').style.display = state.isHost
+          ? 'inline-flex'
+          : 'none';
+        showScreen('screen-gameover');
+      });
+
+      document.getElementById('btnPlayAgain').addEventListener('click', () => {
+        socket.emit('play_again');
+      });
+
+      document.getElementById('btnQuit').addEventListener('click', () => {
+        socket.emit('leave_room');
+        Object.assign(state, {
+          code: null,
+          yourId: null,
+          isHost: false,
+          players: [],
+        });
+        pseudoInput.value = '';
+        codeDigitInputs.forEach((el) => setDigitValue(el, ''));
+        showScreen('screen-home');
+      });
+
+      resetCanvas();
+    </script>
+  </body>
+</html>
