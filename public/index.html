@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v7.3.1/css/all.css">
 <style>
   /* ===================== Design tokens ===================== */
   :root{
@@ -325,6 +326,23 @@
 
   .specimen-card{ position: sticky; top: 14px; }
 
+  /* Sur mobile, la fiche du spécimen reste utile en collant en haut pendant
+     le dessin, mais elle doit occuper beaucoup moins de hauteur pour laisser
+     de la place au canevas (contrairement au carrousel du countdown, qui
+     reste grand car il n'entre pas en concurrence avec un canevas). */
+  @media (max-width: 760px){
+    #screen-drawing .specimen-card{ padding: 10px 16px; }
+    #screen-drawing .specimen-card .section-title{ display:none; }
+    #screen-drawing .carousel-viewport{ max-width: 130px; margin: 0 auto; }
+    #screen-drawing .item-caption{ padding: 5px 6px; }
+    #screen-drawing .item-caption .item-label{ font-size:8.5px; }
+    #screen-drawing .item-caption .item-value{ font-size:12px; }
+    #screen-drawing .carousel-nav{ margin-top:0; gap:8px; }
+    #screen-drawing .carousel-arrow{ width:24px; height:24px; font-size:11px; }
+    #screen-drawing .carousel-dots{ max-width:110px; }
+    #screen-drawing .carousel-counter{ font-size:9px; }
+  }
+
   .canvas-wrap{ background: var(--bg-alt); border:1px solid var(--line); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
   #drawCanvas{ width:100%; height:auto; display:block; background:#ffffff; border-radius: 8px; touch-action:none; cursor: crosshair; box-shadow: 0 0 0 1px rgba(0,0,0,.08) inset; }
   #drawCanvas.tool-fill{ cursor: cell; }
@@ -340,7 +358,12 @@
   .tool-group{ display:flex; align-items:center; gap:8px; }
   .tool-group label{ font-size:12px; color: var(--paper-dim); }
   #brushSize{ width:90px; }
-  .icon-btn{ background: var(--bg-alt-2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:15px; }
+  .icon-btn{
+    width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+    background: var(--bg-alt-2); border:1px solid var(--line); border-radius:8px; font-size:15px; cursor:pointer;
+    transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+  }
+  .icon-btn:hover:not(:disabled):not(.active){ transform: translateY(-1px); border-color: var(--paper-dim); }
   .icon-btn.active{ background: var(--coral); color:#1B0D08; }
   .icon-btn:disabled{ opacity:.35; cursor:not-allowed; }
   .submit-row{ display:flex; justify-content:flex-end; margin-top:14px; }
@@ -389,10 +412,10 @@
 
   /* ===================== Game over / podium ===================== */
   .podium{ display:flex; align-items:flex-end; justify-content:center; gap:14px; margin: 30px 0 10px; }
-  .podium-step{ background: var(--bg-alt); border:1px solid var(--line); border-radius: 12px 12px 4px 4px; padding: 16px 16px 12px; text-align:center; width:120px; }
-  .podium-step.first{ height:150px; }
-  .podium-step.second{ height:120px; }
-  .podium-step.third{ height:100px; }
+  .podium-step{ background: var(--bg-alt); border:1px solid var(--line); border-radius: 12px 12px 4px 4px; padding: 16px 16px 14px; text-align:center; width:120px; }
+  .podium-step.first{ min-height:210px; }
+  .podium-step.second{ min-height:185px; }
+  .podium-step.third{ min-height:165px; }
   .podium-medal{ font-size:30px; }
   .podium-avatar{ width:40px; height:40px; margin: 6px auto 0; font-size:16px; }
   .podium-name{ font-weight:600; margin-top:6px; font-size:14px; }
@@ -432,9 +455,9 @@
         <div class="field avatar-field">
           <label>Ta photo de profil</label>
           <div class="avatar-picker">
-            <button class="avatar-arrow" id="avatarPrev" type="button" aria-label="Avatar précédent">‹</button>
+            <button class="avatar-arrow" id="avatarPrev" type="button" aria-label="Avatar précédent"><i class="fa-solid fa-chevron-left"></i></button>
             <div class="avatar-circle" id="avatarCircle"></div>
-            <button class="avatar-arrow" id="avatarNext" type="button" aria-label="Avatar suivant">›</button>
+            <button class="avatar-arrow" id="avatarNext" type="button" aria-label="Avatar suivant"><i class="fa-solid fa-chevron-right"></i></button>
           </div>
         </div>
 
@@ -571,14 +594,14 @@
             <label for="brushSize">Taille</label>
             <input type="range" id="brushSize" min="2" max="26" value="6" />
           </div>
-          <button class="icon-btn" id="btnEraser" title="Gomme">🩹 Gomme</button>
-          <button class="icon-btn" id="btnFill" title="Pot de peinture">🪣 Remplir</button>
-          <button class="icon-btn" id="btnUndo" title="Annuler">↩ Annuler</button>
-          <button class="icon-btn" id="btnRedo" title="Refaire">↪ Refaire</button>
-          <button class="icon-btn" id="btnClear" title="Tout effacer">🗑 Effacer</button>
+          <button class="icon-btn" id="btnEraser" title="Gomme"><i class="fa-solid fa-eraser"></i></button>
+          <button class="icon-btn" id="btnFill" title="Pot de peinture"><i class="fa-solid fa-fill-drip"></i></button>
+          <button class="icon-btn" id="btnUndo" title="Annuler"><i class="fa-solid fa-rotate-left"></i></button>
+          <button class="icon-btn" id="btnRedo" title="Refaire"><i class="fa-solid fa-rotate-right"></i></button>
+          <button class="icon-btn" id="btnClear" title="Tout effacer"><i class="fa-solid fa-trash-can"></i></button>
         </div>
         <div class="submit-row">
-          <button class="btn btn-primary" id="btnSubmitDrawing">Envoyer mon dessin ✅</button>
+          <button class="btn btn-primary" id="btnSubmitDrawing">Envoyer mon dessin <i class="fa-solid fa-paper-plane"></i></button>
         </div>
         <div class="waiting-note" id="drawWaitingNote" style="display:none;">Dessin envoyé — en attente des autres joueurs…</div>
       </div>
@@ -609,7 +632,7 @@
       </div>
     </div>
     <div class="host-actions" id="revealHostActions" style="display:none;">
-      <button class="btn btn-primary" id="btnNextRound">Round suivant →</button>
+      <button class="btn btn-primary" id="btnNextRound">Round suivant <i class="fa-solid fa-arrow-right-long"></i></button>
     </div>
     <div class="waiting-host" id="revealWaitingHost" style="display:none;">En attente de l'hôte pour continuer…</div>
   </section>
@@ -1036,9 +1059,9 @@ function buildCarousel(containerEl, groups, options = {}){
   containerEl.innerHTML = `
     <div class="carousel-viewport"><div class="carousel-track"></div></div>
     <div class="carousel-nav">
-      ${autoplay ? "" : `<button class="carousel-arrow" type="button" data-dir="-1" aria-label="Précédent">‹</button>`}
+      ${autoplay ? "" : `<button class="carousel-arrow" type="button" data-dir="-1" aria-label="Précédent"><i class="fa-solid fa-chevron-left"></i></button>`}
       <div class="carousel-dots"></div>
-      ${autoplay ? "" : `<button class="carousel-arrow" type="button" data-dir="1" aria-label="Suivant">›</button>`}
+      ${autoplay ? "" : `<button class="carousel-arrow" type="button" data-dir="1" aria-label="Suivant"><i class="fa-solid fa-chevron-right"></i></button>`}
     </div>
     ${autoplay ? "" : `<div class="carousel-counter"></div>`}
   `;
@@ -1454,11 +1477,11 @@ function updateSubmitButtonUI(){
 
   btn.disabled = false;
   if (state.drawingLocked){
-    btn.textContent = "Modifier mon dessin ✏️";
+    btn.innerHTML = 'Modifier mon dessin <i class="fa-solid fa-pencil"></i>';
     note.textContent = "Dessin envoyé — clique pour le retoucher avant la fin du chrono.";
     note.style.display = "block";
   } else {
-    btn.textContent = "Envoyer mon dessin ✅";
+    btn.innerHTML = 'Envoyer mon dessin <i class="fa-solid fa-paper-plane"></i>';
     note.style.display = "none";
   }
 }
@@ -1573,7 +1596,7 @@ socket.on("reveal", ({ round, totalRounds, results, scoreboard, isLastRound }) =
       <div class="frame-tag-row">
         <span class="mini-avatar" data-seed="${escapeHtml(r.avatarSeed || "")}"></span>
         <div class="tag frame-tag">${escapeHtml(r.name)}${r.authorId === state.yourId ? " (toi)" : ""}</div>
-        <button class="download-btn" type="button" data-index="${i}" title="Télécharger ce dessin">⬇</button>
+        <button class="download-btn" type="button" data-index="${i}" title="Télécharger ce dessin"><i class="fa-solid fa-download"></i></button>
       </div>
     </div>
   `).join("");
@@ -1592,7 +1615,9 @@ socket.on("reveal", ({ round, totalRounds, results, scoreboard, isLastRound }) =
   const waitingHost = document.getElementById("revealWaitingHost");
   hostActions.style.display = state.isHost ? "flex" : "none";
   waitingHost.style.display = state.isHost ? "none" : "block";
-  document.getElementById("btnNextRound").textContent = isLastRound ? "Voir le classement final →" : "Round suivant →";
+  document.getElementById("btnNextRound").innerHTML = isLastRound
+    ? 'Voir le classement final <i class="fa-solid fa-arrow-right-long"></i>'
+    : 'Round suivant <i class="fa-solid fa-arrow-right-long"></i>';
 
   showScreen("screen-reveal");
 });
