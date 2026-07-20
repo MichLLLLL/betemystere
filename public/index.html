@@ -146,9 +146,9 @@
   .avatar-picker{ display:flex; align-items:center; justify-content:center; gap:16px; margin-top:6px; }
   .avatar-circle{
     width:84px; height:84px; border-radius:50%; overflow:hidden; flex-shrink:0;
-    background: var(--bg-alt-2); border:2px solid var(--line-strong);
+    background: #ffffff; border:1.5px solid #000000;
     display:flex; align-items:center; justify-content:center;
-    font-family:'Space Mono',monospace; font-size:26px; font-weight:700; color: var(--paper-dim);
+    font-family:'Space Mono',monospace; font-size:26px; font-weight:700; color: var(--ink);
     transition: border-color 200ms ease, transform 200ms ease;
   }
   .avatar-circle img{
@@ -167,9 +167,9 @@
   /* Petit avatar réutilisé partout (lobby, révélation, classements) */
   .mini-avatar{
     width:28px; height:28px; border-radius:50%; background-size:cover; background-position:center;
-    background-color: var(--bg-alt-2); flex-shrink:0; overflow:hidden;
+    background-color: #ffffff; border:1px solid #000000; flex-shrink:0; overflow:hidden; box-sizing:border-box;
     display:flex; align-items:center; justify-content:center;
-    font-family:'Space Mono',monospace; font-size:12px; font-weight:700; color: var(--paper-dim);
+    font-family:'Space Mono',monospace; font-size:12px; font-weight:700; color: var(--ink);
     transition: background-image 200ms ease;
   }
 
@@ -228,6 +228,31 @@
     transition: transform 120ms ease;
   }
   input[type=range]::-moz-range-thumb:hover{ transform: scale(1.15); }
+  .setting-block{ display:flex; flex-direction:column; gap:8px; }
+  .segmented{ display:flex; gap:6px; flex-wrap:wrap; }
+  .segment{
+    padding:7px 16px; border-radius:999px; border:1px solid var(--line-strong); background:transparent; color: var(--paper);
+    font-size:13px; font-family:'Space Grotesk',sans-serif; cursor:pointer;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+  }
+  .segment:hover:not(.active){ border-color: var(--paper); }
+  .segment.active{ background: var(--coral); border-color: var(--coral); color:#1B0D08; font-weight:600; }
+  .segment:active{ transform: scale(0.96); }
+
+  .extras-toggle{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-top:16px; }
+  .extras-toggle input[type=checkbox]{
+    appearance:none; -webkit-appearance:none; width:20px; height:20px; border-radius:6px; flex-shrink:0;
+    border:1px solid var(--line-strong); background: var(--bg); margin-top:1px; cursor:pointer; position:relative;
+    transition: background 160ms ease, border-color 160ms ease;
+  }
+  .extras-toggle input[type=checkbox]:checked{ background: var(--coral); border-color: var(--coral); }
+  .extras-toggle input[type=checkbox]:checked::after{
+    content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:13px; color:#1B0D08; font-weight:700;
+  }
+  .extras-toggle-text{ font-size:14px; color: var(--paper); }
+  .extras-hint{ display:block; font-size:12px; color: var(--paper-dim); margin-top:2px; }
+
   .settings-readonly{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
 
   .section-title{ font-family:'Space Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:.12em; color: var(--gold); margin-bottom:10px; }
@@ -475,7 +500,24 @@
               <input type="range" id="setVoteTime" min="15" max="60" step="5" value="25" />
               <span class="setting-value" id="valVoteTime">25s</span>
             </div>
+            <div class="setting-block">
+              <span class="setting-label">Difficulté</span>
+              <div class="segmented" id="difficultySegmented">
+                <button type="button" class="segment" data-value="easy">Facile</button>
+                <button type="button" class="segment" data-value="medium">Moyen</button>
+                <button type="button" class="segment" data-value="full">Complet</button>
+              </div>
+            </div>
           </div>
+
+          <label class="extras-toggle">
+            <input type="checkbox" id="setIncludeExtras" checked />
+            <span class="extras-toggle-text">
+              Particularité
+              <span class="extras-hint">Ex. cornes de licorne, yeux qui brillent, écailles dorées, ailes de dragon…</span>
+            </span>
+          </label>
+
           <button class="btn btn-primary" id="btnStart" style="width:100%; margin-top:18px;">Lancer la partie</button>
           <div class="error-msg center" id="lobbyError"></div>
         </div>
@@ -486,6 +528,8 @@
             <span class="tag" id="roTag1">3 rounds</span>
             <span class="tag" id="roTag2">90s dessin</span>
             <span class="tag" id="roTag3">25s vote</span>
+            <span class="tag" id="roTagDifficulty">Moyen</span>
+            <span class="tag" id="roTagExtras">+ particularité</span>
           </div>
           <p class="waiting-note">En attente que l'hôte lance la partie…</p>
         </div>
@@ -600,7 +644,7 @@ const state = {
   yourId: null,
   isHost: false,
   avatarSeed: null,
-  settings: { rounds: 3, drawTime: 90, voteTime: 25 },
+  settings: { rounds: 3, drawTime: 90, voteTime: 25, difficulty: "medium", includeExtras: true },
   players: [],
   round: 0,
   totalRounds: 0,
@@ -837,6 +881,8 @@ document.querySelectorAll('input[type="range"]').forEach((input) => {
   input.addEventListener("input", () => updateRangeFill(input));
 });
 
+const DIFFICULTY_LABELS = { easy: "Facile", medium: "Moyen", full: "Complet" };
+
 function applySettingsToLobbyUI(){
   document.getElementById("setRounds").value = state.settings.rounds;
   document.getElementById("valRounds").textContent = state.settings.rounds;
@@ -846,9 +892,16 @@ function applySettingsToLobbyUI(){
   document.getElementById("valVoteTime").textContent = state.settings.voteTime + "s";
   ["setRounds", "setDrawTime", "setVoteTime"].forEach((id) => updateRangeFill(document.getElementById(id)));
 
+  document.querySelectorAll("#difficultySegmented .segment").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.value === state.settings.difficulty);
+  });
+  document.getElementById("setIncludeExtras").checked = !!state.settings.includeExtras;
+
   document.getElementById("roTag1").textContent = state.settings.rounds + " rounds";
   document.getElementById("roTag2").textContent = state.settings.drawTime + "s dessin";
   document.getElementById("roTag3").textContent = state.settings.voteTime + "s vote";
+  document.getElementById("roTagDifficulty").textContent = DIFFICULTY_LABELS[state.settings.difficulty] || "Moyen";
+  document.getElementById("roTagExtras").textContent = state.settings.includeExtras ? "+ particularité" : "sans particularité";
 }
 
 ["setRounds","setDrawTime","setVoteTime"].forEach((id) => {
@@ -861,6 +914,18 @@ function applySettingsToLobbyUI(){
     document.getElementById("valVoteTime").textContent = voteTime + "s";
     socket.emit("update_settings", { rounds, drawTime, voteTime });
   });
+});
+
+document.querySelectorAll("#difficultySegmented .segment").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const difficulty = btn.dataset.value;
+    document.querySelectorAll("#difficultySegmented .segment").forEach((b) => b.classList.toggle("active", b === btn));
+    socket.emit("update_settings", { difficulty });
+  });
+});
+
+document.getElementById("setIncludeExtras").addEventListener("change", (e) => {
+  socket.emit("update_settings", { includeExtras: e.target.checked });
 });
 
 document.getElementById("btnStart").addEventListener("click", () => {

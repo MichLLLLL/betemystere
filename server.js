@@ -12,7 +12,7 @@ const express = require("express");
 const http = require("http");
 const path = require("path");
 const { Server } = require("socket.io");
-const { generateAnimal, partLabels, slugify, TRAIT_GROUPS } = require("./animalParts");
+const { generateAnimal, partLabels, slugify, DIFFICULTY_LEVELS } = require("./animalParts");
 
 const app = express();
 const server = http.createServer(app);
@@ -80,11 +80,14 @@ const rooms = new Map();
 
 const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans I, O, 0, 1
 const MIN_PLAYERS_TO_START = 2;
-const DEFAULT_SETTINGS = { rounds: 3, drawTime: 90, voteTime: 25 };
+const DEFAULT_SETTINGS = { rounds: 3, drawTime: 90, voteTime: 25, difficulty: "medium", includeExtras: true };
 const INTRO_MS_PER_GROUP = 1500; // le carrousel défile tout seul, 1,5 seconde par slide
-const COUNTDOWN_MS = TRAIT_GROUPS.length * INTRO_MS_PER_GROUP; // durée totale avant le début du dessin
 const VOTE_BONUS = 25; // bonus pour le(s) dessin(s) le(s) plus voté(s) du round
 const POINTS_PER_VOTE = 10;
+
+function getDifficulty(room) {
+  return DIFFICULTY_LEVELS[room.settings.difficulty] || DIFFICULTY_LEVELS.medium;
+}
 
 function makeRoomCode() {
   let code;
@@ -169,39 +172,45 @@ function startRound(room) {
   clearRoomTimer(room);
   room.round += 1;
   room.phase = "countdown";
-  room.currentAnimal = generateAnimal();
+
+  const difficulty = getDifficulty(room);
+  const includeExtras = !!room.settings.includeExtras;
+  room.currentAnimal = generateAnimal(difficulty.keys, includeExtras);
   room.submissions = new Map(); // socketId -> dataURL (mis à jour aussi par l'autosave pendant l'édition)
   room.lockedPlayers = new Set(); // socketId des joueurs actuellement en état "verrouillé" (dessin envoyé)
   room.votes = new Map(); // voterId -> targetId
   room.anonymizedOrder = []; // rempli à l'entrée en phase de vote
 
-  const groups = TRAIT_GROUPS.map((group) => ({
-    title: group.title,
-    items: group.keys.map((key) => {
-      const value = room.currentAnimal.traits[key];
-      // "extras" n'est pas un animal (ex: "glowing eyes", "unicorn horn"),
-      // donc pas de photo de référence pour ce trait-là.
-      const isAnimalTrait = key !== "extras";
-      const slug = isAnimalTrait ? slugify(value) : null;
-      return {
+  const displayKeys = includeExtras ? [...difficulty.keys, "extras"] : difficulty.keys;
+  const groups = displayKeys.map((key) => {
+    const value = room.currentAnimal.traits[key];
+    // "extras" n'est pas un animal (ex: "glowing eyes", "unicorn horn"),
+    // donc pas de photo de référence pour ce trait-là.
+    const isAnimalTrait = key !== "extras";
+    const slug = isAnimalTrait ? slugify(value) : null;
+    return {
+      title: partLabels[key],
+      items: [{
         key,
         label: partLabels[key],
         value,
         image: slug ? `/images/animals/${slug}.jpg` : null,
         imageFallback: slug ? `/images/animals/${slug}.png` : null,
-      };
-    }),
-  }));
+      }],
+    };
+  });
+
+  const countdownMs = displayKeys.length * INTRO_MS_PER_GROUP;
 
   io.to(room.code).emit("round_countdown", {
     round: room.round,
     totalRounds: room.settings.rounds,
     groups,
     hasArachnid: room.currentAnimal.hasArachnid,
-    countdownMs: COUNTDOWN_MS,
+    countdownMs,
   });
 
-  room.timer = setTimeout(() => beginDrawingPhase(room), COUNTDOWN_MS);
+  room.timer = setTimeout(() => beginDrawingPhase(room), countdownMs);
 }
 
 function beginDrawingPhase(room) {
@@ -417,13 +426,19 @@ io.on("connection", (socket) => {
     io.to(roomCode).emit("toast", { message: `${player.name} a rejoint le salon.` });
   });
 
-  socket.on("update_settings", ({ rounds, drawTime, voteTime } = {}) => {
+  socket.on("update_settings", ({ rounds, drawTime, voteTime, difficulty, includeExtras } = {}) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room || socket.id !== room.hostId || room.phase !== "lobby") return;
 
     room.settings.rounds = Math.min(10, Math.max(1, parseInt(rounds, 10) || room.settings.rounds));
     room.settings.drawTime = Math.min(180, Math.max(30, parseInt(drawTime, 10) || room.settings.drawTime));
     room.settings.voteTime = Math.min(60, Math.max(15, parseInt(voteTime, 10) || room.settings.voteTime));
+    if (difficulty !== undefined && DIFFICULTY_LEVELS[difficulty]) {
+      room.settings.difficulty = difficulty;
+    }
+    if (includeExtras !== undefined) {
+      room.settings.includeExtras = !!includeExtras;
+    }
 
     io.to(room.code).emit("settings_update", { settings: room.settings });
   });
