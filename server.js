@@ -84,6 +84,7 @@ const DEFAULT_SETTINGS = { rounds: 3, drawTime: 90, voteTime: 25, difficulty: "m
 const INTRO_MS_PER_GROUP = 1500; // le carrousel défile tout seul, 1,5 seconde par slide
 const VOTE_BONUS = 25; // bonus pour le(s) dessin(s) le(s) plus voté(s) du round
 const POINTS_PER_VOTE = 10;
+const MAX_CHAT_HISTORY = 200;
 
 function getDifficulty(room) {
   return DIFFICULTY_LEVELS[room.settings.difficulty] || DIFFICULTY_LEVELS.medium;
@@ -367,6 +368,7 @@ io.on("connection", (socket) => {
       submissions: new Map(),
       votes: new Map(),
       anonymizedOrder: [],
+      chatMessages: [],
       timer: null,
       phaseEndsAt: null,
     };
@@ -381,6 +383,7 @@ io.on("connection", (socket) => {
       isHost: true,
       settings: room.settings,
       players: publicPlayerList(room),
+      chatMessages: room.chatMessages,
     });
   });
 
@@ -420,10 +423,36 @@ io.on("connection", (socket) => {
       isHost: socket.id === room.hostId,
       settings: room.settings,
       players: publicPlayerList(room),
+      chatMessages: room.chatMessages,
     });
 
     emitPlayers(room);
     io.to(roomCode).emit("toast", { message: `${player.name} a rejoint le salon.` });
+  });
+
+  // Chat texte simple, disponible à tout moment (lobby, dessin, vote, révélation...).
+  socket.on("chat_message", ({ text } = {}) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const player = room.players.get(socket.id);
+    if (!player) return;
+
+    const clean = String(text || "").trim().slice(0, 300);
+    if (!clean) return;
+
+    const message = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      playerId: socket.id,
+      name: player.name,
+      avatarSeed: player.avatarSeed,
+      text: clean,
+      at: Date.now(),
+    };
+
+    room.chatMessages.push(message);
+    if (room.chatMessages.length > MAX_CHAT_HISTORY) room.chatMessages.shift();
+
+    io.to(room.code).emit("chat_message", message);
   });
 
   socket.on("update_settings", ({ rounds, drawTime, voteTime, difficulty, includeExtras } = {}) => {
@@ -566,5 +595,5 @@ io.on("connection", (socket) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Bête Mystère lancé sur le port http://localhost:${PORT}`);
+  console.log(`Bête Mystère lancé sur le port ${PORT}`);
 });

@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vérification des images d'animaux</title>
+<style>
+  :root{
+    --bg:#16241D; --bg-alt:#1F3327; --paper:#F4ECD8; --ink:#17231B;
+    --coral:#FF6B54; --gold:#F2B84B; --teal:#4FB6A8; --line:rgba(244,236,216,.14);
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--bg); color:var(--paper);
+    font-family:'Space Mono', ui-monospace, monospace; padding:24px;
+  }
+  h1{ font-size:18px; margin:0 0 4px; }
+  p.subtitle{ color:#cfc6ad; font-size:13px; margin:0 0 20px; max-width:640px; line-height:1.5; }
+  .config{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+  .config label{ font-size:12px; color:var(--gold); }
+  .config input[type=text]{
+    background:var(--bg-alt); border:1px solid var(--line); color:var(--paper);
+    border-radius:6px; padding:8px 10px; font-family:inherit; font-size:13px; width:260px;
+  }
+  button{
+    background:var(--coral); color:#1B0D08; border:none; border-radius:6px;
+    padding:9px 18px; font-family:inherit; font-weight:700; font-size:13px; cursor:pointer;
+  }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
+  .progress-row{ display:flex; align-items:center; gap:12px; margin:16px 0; font-size:13px; }
+  .progress-bar{ flex:1; max-width:400px; height:8px; background:var(--bg-alt); border-radius:999px; overflow:hidden; }
+  .progress-fill{ height:100%; width:0%; background:var(--teal); transition: width 120ms ease; }
+  .summary{ display:flex; gap:20px; flex-wrap:wrap; margin:16px 0; font-size:13px; }
+  .summary .ok{ color:var(--teal); }
+  .summary .missing{ color:var(--coral); }
+  table{ border-collapse:collapse; width:100%; max-width:720px; font-size:12.5px; margin-top:10px; }
+  th, td{ text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); }
+  th{ color:var(--gold); font-weight:700; text-transform:uppercase; font-size:10.5px; letter-spacing:.06em; }
+  td.slug{ color:var(--coral); }
+  #status{ font-size:12.5px; color:#cfc6ad; margin-top:6px; }
+</style>
+</head>
+<body>
+
+<h1>Vérification des images d'animaux</h1>
+<p class="subtitle">
+  Ce fichier doit être placé dans le dossier <code>public/</code> du projet et ouvert via le
+  serveur en marche (ex. <code>http://localhost:3000/check-images.html</code>) — pas en double-cliquant
+  dessus directement, sinon les requêtes vers les images échouent à cause des restrictions du navigateur
+  sur les fichiers locaux. Il teste chaque nom d'animal possible du jeu (404 au total),
+  cherche <code>&lt;dossier&gt;/&lt;slug&gt;.jpg</code> puis <code>.png</code> en repli, et liste ci-dessous
+  celles qui sont introuvables (aussi loggées dans la console).
+</p>
+
+<div class="config">
+  <label for="baseUrl">Dossier des images :</label>
+  <input type="text" id="baseUrl" value="images/animals/" />
+  <button id="btnStart">Lancer la vérification</button>
+</div>
+
+<div class="progress-row">
+  <span id="progressText">0 / 404</span>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+</div>
+
+<div class="summary">
+  <span class="ok">✓ Trouvées : <span id="countFound">0</span></span>
+  <span class="missing">✕ Introuvables : <span id="countMissing">0</span></span>
+</div>
+
+<div id="status"></div>
+
+<table id="missingTable" style="display:none;">
+  <thead>
+    <tr><th>Nom (dans animalParts.js)</th><th>Nom de fichier attendu (slug)</th></tr>
+  </thead>
+  <tbody id="missingBody"></tbody>
+</table>
+
+<script>
+"use strict";
+
+// Liste complète et dédupliquée de tous les noms d'animaux utilisés dans
+// animalParts.js (base, tête, oreilles, yeux, museau, pattes, queue, pelage,
+// couleur confondus). Régénère cette liste si tu modifies animalParts.js.
+const ANIMAL_NAMES = [
+  "aardvark",
+  "aardwolf",
+  "abyssinian",
+  "afghan hound",
+  "african civet",
+  "african crowned crane",
+  "african penguin",
+  "african wild dog",
+  "akita",
+  "alaskan malamute",
+  "allosaurus",
+  "amazon milk frog",
+  "american brahman",
+  "american curl",
+  "american white pelican",
+  "amur leopard",
+  "angel shark",
+  "angelfish",
+  "angora rabbit",
+  "ankylosaurus",
+  "anna's hummingbird",
+  "ant",
+  "anteater",
+  "arabian horse",
+  "arctic fox",
+  "arctic hare",
+  "armadillo",
+  "axolotl",
+  "aye-aye",
+  "azara's agouti",
+  "baboon",
+  "baiji dolphin",
+  "bald ibis",
+  "bare-throated bellbird",
+  "barn owl",
+  "barracuda",
+  "basenji",
+  "basking shark",
+  "basset hound",
+  "bat",
+  "bat-eared fox",
+  "bear",
+  "bearded dragon",
+  "bearded vulture",
+  "beaver",
+  "bedlington terrier",
+  "betta fish",
+  "bichon frise",
+  "binturong",
+  "birman",
+  "bison",
+  "black lemur",
+  "black russian terrier",
+  "black vulture",
+  "black-chinned hummingbird",
+  "black-tailed jackrabbit",
+  "bloodhound",
+  "blue glaucus",
+  "blue gourami",
+  "blue jay",
+  "blue morpho butterfly",
+  "blue poison dart frog",
+  "blue ridge two-lined salamander",
+  "blue whale",
+  "blue-ringed octopus",
+  "blue-tailed skink",
+  "bobcat",
+  "bombay",
+  "bongo",
+  "booby",
+  "border collie",
+  "boxer",
+  "brachiosaurus",
+  "british timber",
+  "brown bear",
+  "budgerigar",
+  "bull shark",
+  "bull terrier",
+  "bullfrog",
+  "bumblebee",
+  "bushy-tailed mongoose",
+  "cairns birdwing",
+  "california red-sided garter snake",
+  "camel",
+  "capybara",
+  "caracal",
+  "carnotaurus",
+  "cassowary",
+  "caterpillar",
+  "catfish",
+  "centipede",
+  "chameleon",
+  "chamois",
+  "cheetah",
+  "chestnut-collared longspur",
+  "chicken",
+  "chihuahua",
+  "chimera",
+  "chimney swift",
+  "chinchilla",
+  "chinese crested",
+  "chipmunk",
+  "cichlid",
+  "clawed frog",
+  "cleaner shrimp",
+  "clownfish",
+  "coati",
+  "cocker spaniel",
+  "cockroach",
+  "collared peccary",
+  "collie",
+  "colossal squid",
+  "common frog",
+  "common moorhen",
+  "common pheasant",
+  "common yellowthroat",
+  "cottontop tamarin",
+  "coyote",
+  "crocodile",
+  "cuban snail",
+  "cuscus",
+  "dachshund",
+  "dama gazelle",
+  "darwin's frog",
+  "dhole",
+  "discus",
+  "doberman",
+  "dodo",
+  "dogue de bordeaux",
+  "donkey",
+  "dormouse",
+  "dragonfly",
+  "duck",
+  "dwarf mongoose",
+  "dyeing dart frog",
+  "earwig",
+  "eastern bluebird",
+  "echidna",
+  "electric blue gecko",
+  "elephant",
+  "emerald tree boa",
+  "emperor tamarin",
+  "emu",
+  "etruscan shrew",
+  "eurasian golden oriole",
+  "eurasian jay",
+  "eurasian otter",
+  "european badger",
+  "european bison",
+  "european hare",
+  "european lynx",
+  "european mink",
+  "european peacock butterfly",
+  "european pine marten",
+  "fangtooth",
+  "fennec fox",
+  "ferret",
+  "fiery-throated hummingbird",
+  "fishing cat",
+  "flamingo",
+  "fossa",
+  "galago",
+  "gazelle",
+  "gecko",
+  "gemsbok",
+  "german shepherd",
+  "gharial",
+  "giant hornet",
+  "giant tortoise",
+  "gila monster",
+  "giraffe",
+  "glass frog",
+  "glossy ibis",
+  "goldcrest",
+  "golden pheasant",
+  "golden poison frog",
+  "golden retriever",
+  "golden tortoise beetle",
+  "golden-rumped elephant shrew",
+  "goldfinch",
+  "gopher",
+  "gouldian finch",
+  "grasshopper",
+  "great crested grebe",
+  "great dane",
+  "great white shark",
+  "greater racket-tailed drongo",
+  "green anole",
+  "green heron",
+  "green iguana",
+  "griffin",
+  "grouse",
+  "hammerhead shark",
+  "harlequin tuskfish",
+  "harpy",
+  "harpy eagle",
+  "harvest mouse",
+  "hedgehog",
+  "heron",
+  "hippopotamus",
+  "hirola",
+  "honey badger",
+  "honey bee",
+  "hoopoe bird",
+  "horse",
+  "horseshoe crab",
+  "house finch",
+  "howler monkey",
+  "hyena",
+  "iberian lynx",
+  "ibis",
+  "indian giant squirrel",
+  "indian painted grasshopper",
+  "irish cob",
+  "jack russel terrier",
+  "jackal",
+  "japanese macaque",
+  "japanese serow",
+  "java mouse-deer",
+  "javan rhino",
+  "jellyfish",
+  "jewel bug",
+  "kangaroo",
+  "kangaroo rat",
+  "killer whale",
+  "king bird-of-paradise",
+  "king penguin",
+  "kiwi",
+  "koala",
+  "komodo dragon",
+  "kulan",
+  "lady amherst's pheasant",
+  "ladybug",
+  "lamprey",
+  "lantern bug",
+  "large white pig",
+  "lazuli bunting",
+  "leaf insect",
+  "leaf sheep",
+  "leafy sea dragon",
+  "leopard",
+  "lilac-breasted roller",
+  "lion",
+  "llama",
+  "long-eared jerboa",
+  "long-eared owl",
+  "long-tailed widowbird",
+  "lovebird",
+  "lynx",
+  "madagascar pochard",
+  "malay lacewing",
+  "mandarin catfish",
+  "mandarin duck",
+  "mandarin fish",
+  "mandarin rat snake",
+  "mandarin vole",
+  "maned wolf",
+  "mantis shrimp",
+  "marine iguana",
+  "markhor",
+  "meerkat",
+  "millipede",
+  "mimic poison frog",
+  "monkey",
+  "moose",
+  "mosquito",
+  "mountain goat",
+  "mountain lion",
+  "mouse",
+  "mudskipper",
+  "mule deer",
+  "muntjac deer",
+  "musk deer",
+  "narwhal",
+  "nigerian goat",
+  "nile lechwe",
+  "nubian goat",
+  "numbat",
+  "ocean angel",
+  "okapi",
+  "opossum",
+  "orangutan",
+  "otter",
+  "palmato gecko",
+  "pangolin",
+  "panther",
+  "parasaurolophus",
+  "patagonian mara",
+  "peacock",
+  "peacock tarantula",
+  "pelican",
+  "peregrine falcon",
+  "phantasmal poison frog",
+  "philippine eagle",
+  "piebald peacock",
+  "pine marten",
+  "pink fairy armadillo",
+  "pink-eared duck",
+  "piranha",
+  "pit bull terrier",
+  "ploughshare tortoise",
+  "polar bear",
+  "porcupine",
+  "potoo",
+  "prairie dog",
+  "proboscis monkey",
+  "przewalski's wild horse",
+  "pterodactylus",
+  "pug",
+  "puli",
+  "pygmy marmoset",
+  "pygmy rabbit",
+  "raccoon",
+  "rain frog",
+  "rainbow bee-eater",
+  "rainbow boa",
+  "rainbow lorikeet",
+  "rainbow stag beetle",
+  "rainbow trout",
+  "rainbow wrasse",
+  "red fox",
+  "red kangaroo",
+  "red panda",
+  "red squirrel",
+  "red-eyed tree frog",
+  "reindeer",
+  "resplendent quetzal",
+  "rhino",
+  "rice weevil",
+  "ring-tailed lemur",
+  "ringtail possum",
+  "river dolphin",
+  "roborovski hamster",
+  "rosy maple moth",
+  "saiga antelope",
+  "saluki",
+  "san francisco garter snake",
+  "saola",
+  "scarlet ibis",
+  "scarlet macaw",
+  "scarlet tanager",
+  "schnauzer",
+  "scorpion",
+  "sea lion",
+  "sea turtle",
+  "seahorse",
+  "seal",
+  "secretary bird",
+  "serval",
+  "sheep",
+  "shih tzu",
+  "short-tailed shrew",
+  "silvereye",
+  "sloth",
+  "sloth bear",
+  "slow lori",
+  "snow leopard",
+  "snub-nosed monkey",
+  "spider monkey",
+  "spinosaurus",
+  "spiny flower mantis",
+  "spiny softshell turtle",
+  "star-nosed mole",
+  "stegosaurus",
+  "stoat",
+  "striped skunk",
+  "sun bear",
+  "superb lyrebird",
+  "swallowtail butterfly",
+  "t-rex",
+  "tailed jay",
+  "takin",
+  "tapir",
+  "tarantula",
+  "thorn treehopper",
+  "tiger",
+  "toucan",
+  "triceratops",
+  "tui",
+  "turquoise-browed motmot",
+  "tyrannosaurus",
+  "utahraptor",
+  "vaquita",
+  "vicuna",
+  "violet-green swallow",
+  "wallaby",
+  "weasel",
+  "welcome swallow",
+  "whippet",
+  "white tiger",
+  "white-face saki",
+  "white-throated swift",
+  "wigeon",
+  "wild boar",
+  "wildebeest",
+  "wilson's bird-of-paradise",
+  "wolf",
+  "wolverine",
+  "yak",
+  "yellow tang",
+  "yellow-bellied sapsucker",
+  "yellow-billed cuckoo",
+  "yellow-breasted chat",
+  "zebu"
+];
+
+// Même fonction que dans animalParts.js, pour être certain de tester
+// exactement les mêmes noms de fichiers que ceux utilisés par le jeu.
+function slugify(value) {
+  return String(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+async function imageExists(url) {
+  try {
+    const res = await fetch(url, { method: "HEAD", cache: "no-store" });
+    return res.ok;
+  } catch (err) {
+    return false;
+  }
+}
+
+async function checkOne(name, baseUrl) {
+  const slug = slugify(name);
+  const jpgOk = await imageExists(baseUrl + slug + ".jpg");
+  if (jpgOk) return { name, slug, found: true };
+  const pngOk = await imageExists(baseUrl + slug + ".png");
+  if (pngOk) return { name, slug, found: true };
+  return { name, slug, found: false };
+}
+
+// Petit pool à concurrence limitée pour ne pas envoyer 400 requêtes d'un coup.
+async function runPool(items, worker, concurrency, onProgress) {
+  let index = 0;
+  let done = 0;
+  const results = new Array(items.length);
+
+  async function next() {
+    while (index < items.length) {
+      const i = index++;
+      results[i] = await worker(items[i]);
+      done++;
+      onProgress(done, items.length);
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, next));
+  return results;
+}
+
+const btnStart = document.getElementById("btnStart");
+const progressText = document.getElementById("progressText");
+const progressFill = document.getElementById("progressFill");
+const countFound = document.getElementById("countFound");
+const countMissing = document.getElementById("countMissing");
+const missingTable = document.getElementById("missingTable");
+const missingBody = document.getElementById("missingBody");
+const statusEl = document.getElementById("status");
+const baseUrlInput = document.getElementById("baseUrl");
+
+btnStart.addEventListener("click", async () => {
+  btnStart.disabled = true;
+  missingBody.innerHTML = "";
+  missingTable.style.display = "none";
+  countFound.textContent = "0";
+  countMissing.textContent = "0";
+  statusEl.textContent = "Vérification en cours...";
+
+  let baseUrl = baseUrlInput.value.trim();
+  if (!baseUrl.endsWith("/")) baseUrl += "/";
+
+  let found = 0;
+  let missing = 0;
+
+  console.log("Début de la vérification de " + ANIMAL_NAMES.length + " images...");
+
+  const results = await runPool(ANIMAL_NAMES, (name) => checkOne(name, baseUrl), 8, (done, total) => {
+    progressText.textContent = done + " / " + total;
+    progressFill.style.width = (done / total * 100) + "%";
+  });
+
+  results.forEach((r) => {
+    if (r.found) {
+      found++;
+    } else {
+      missing++;
+      console.log("MANQUANTE  ->  nom: \"" + r.name + "\"   fichier attendu: " + r.slug + ".jpg (ou .png)");
+      const row = document.createElement("tr");
+      row.innerHTML = "<td>" + escapeHtml(r.name) + "</td><td class=\"slug\">" + escapeHtml(r.slug) + ".jpg</td>";
+      missingBody.appendChild(row);
+    }
+  });
+
+  countFound.textContent = String(found);
+  countMissing.textContent = String(missing);
+  if (missing > 0) missingTable.style.display = "table";
+
+  statusEl.textContent = "Terminé. " + found + " trouvée(s), " + missing + " manquante(s). Détail dans la console (F12).";
+  console.log("Terminé :", found, "trouvées,", missing, "manquantes.");
+  btnStart.disabled = false;
+});
+
+function escapeHtml(str){
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

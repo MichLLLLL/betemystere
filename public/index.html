@@ -272,8 +272,9 @@
   }
 
   /* ===================== Carrousel photo de référence (élément signature) ===================== */
-  .carousel{ display:flex; flex-direction:column; align-items:center; gap:10px; }
-  .carousel-viewport{ position:relative; width:100%; max-width:300px; overflow:hidden; padding: 3px; border-radius:14px; }
+  .carousel{ display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; }
+  .carousel-body{ display:flex; align-items:center; gap:8px; width:100%; }
+  .carousel-viewport{ position:relative; width:100%; max-width:300px; overflow:hidden; padding: 3px; border-radius:14px; flex:1; min-width:0; }
   .carousel-track{ display:flex; align-items:stretch; gap: 14px; }
   .carousel-track .carousel-card{ flex:0 0 100%; width:100%; }
   .carousel-group-title{
@@ -297,7 +298,6 @@
   .item-caption{ padding:7px 8px; text-align:center; color: var(--ink); }
   .item-caption .item-label{ display:block; font-family:'Space Mono',monospace; font-size:9.5px; text-transform:uppercase; letter-spacing:.06em; opacity:.6; }
   .item-caption .item-value{ display:block; font-family:'Fraunces',serif; font-weight:600; font-size:14px; margin-top:2px; line-height:1.15; }
-  .carousel-nav{ display:flex; align-items:center; gap:10px; margin-top:2px; }
   .carousel-arrow{
     width:30px; height:30px; border-radius:50%; border:none; background: var(--coral); color:#1B0D08;
     font-size:16px; display:flex; align-items:center; justify-content:center; flex-shrink:0; line-height:1;
@@ -329,21 +329,32 @@
   /* Sur mobile, la fiche du spécimen reste utile en collant en haut pendant
      le dessin, mais elle doit occuper beaucoup moins de hauteur pour laisser
      de la place au canevas (contrairement au carrousel du countdown, qui
-     reste grand car il n'entre pas en concurrence avec un canevas). */
+     reste grand car il n'entre pas en concurrence avec un canevas). Les
+     flèches étant maintenant de part et d'autre du viewport (pas en dessous),
+     la photo peut remplir tout l'espace disponible entre elles. */
   @media (max-width: 760px){
-    #screen-drawing .specimen-card{ padding: 10px 16px; }
+    #screen-drawing .specimen-card{ padding: 10px 14px; }
     #screen-drawing .specimen-card .section-title{ display:none; }
-    #screen-drawing .carousel-viewport{ max-width: 130px; margin: 0 auto; }
+    #screen-drawing .carousel-viewport{ max-width: none; }
     #screen-drawing .item-caption{ padding: 5px 6px; }
     #screen-drawing .item-caption .item-label{ font-size:8.5px; }
     #screen-drawing .item-caption .item-value{ font-size:12px; }
-    #screen-drawing .carousel-nav{ margin-top:0; gap:8px; }
-    #screen-drawing .carousel-arrow{ width:24px; height:24px; font-size:11px; }
-    #screen-drawing .carousel-dots{ max-width:110px; }
+    #screen-drawing .carousel-arrow{ width:26px; height:26px; font-size:12px; }
     #screen-drawing .carousel-counter{ font-size:9px; }
   }
 
   .canvas-wrap{ background: var(--bg-alt); border:1px solid var(--line); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
+  /* Sur mobile, presque plus de marge autour du canevas pour qu'il prenne
+     le maximum de largeur ; en compensation, les outils se resserrent un
+     peu pour ne pas se retrouver collés au bord de l'écran. */
+  @media (max-width: 760px){
+    #app{ padding: 20px 10px 60px; }
+    #screen-drawing .canvas-wrap{ padding: 6px; }
+    #screen-drawing .toolbar{ gap: 8px; margin-top: 10px; }
+    #screen-drawing .swatches{ gap: 4px; }
+    #screen-drawing .tool-group{ gap: 5px; }
+  }
+
   #drawCanvas{ width:100%; height:auto; display:block; background:#ffffff; border-radius: 8px; touch-action:none; cursor: crosshair; box-shadow: 0 0 0 1px rgba(0,0,0,.08) inset; }
   #drawCanvas.tool-fill{ cursor: cell; }
   .canvas-wrap.locked #drawCanvas{ opacity:.75; cursor: default; }
@@ -430,6 +441,78 @@
   }
   @keyframes toastin{ from{ opacity:0; transform: translateY(-8px);} to{ opacity:1; transform:none; } }
   @keyframes toastout{ to{ opacity:0; transform: translateY(-8px); } }
+
+  /* ===================== Chat ===================== */
+  .chat-toggle{
+    position: fixed; bottom: 22px; right: 22px; z-index: 950;
+    width: 54px; height: 54px; border-radius: 50%; border: none;
+    background: var(--coral); color: #1B0D08; font-size: 20px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    box-shadow: 0 10px 24px -8px rgba(0,0,0,.55);
+    transition: transform 160ms ease, background 160ms ease;
+  }
+  .chat-toggle:hover{ transform: scale(1.08); background:#ff7d68; }
+  .chat-badge{
+    position:absolute; top:-4px; right:-4px; min-width:20px; height:20px; padding:0 5px; box-sizing:border-box;
+    border-radius:999px; background: var(--teal); color:#0C201D;
+    font-family:'Space Mono',monospace; font-size:11px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    border: 2px solid var(--bg);
+  }
+
+  .chat-panel{
+    position: fixed; bottom: 90px; right: 22px; z-index: 950;
+    width: 320px; max-width: calc(100vw - 32px); height: 420px; max-height: calc(100vh - 130px);
+    background: var(--bg-alt); border:1px solid var(--line-strong); border-radius: 14px;
+    box-shadow: var(--shadow);
+    display: flex; flex-direction: column; overflow: hidden;
+    opacity: 0; transform: translateY(12px) scale(0.98); pointer-events: none;
+    transition: opacity 180ms ease, transform 180ms ease;
+  }
+  .chat-panel.open{ opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+
+  .chat-panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 12px 14px; border-bottom: 1px solid var(--line);
+    font-family:'Space Mono',monospace; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color: var(--gold);
+  }
+  .chat-close{
+    background:none; border:none; color: var(--paper-dim); font-size:15px; cursor:pointer; padding:4px;
+    transition: color 140ms ease;
+  }
+  .chat-close:hover{ color: var(--paper); }
+
+  .chat-messages{ flex:1; overflow-y:auto; padding: 12px 14px; display:flex; flex-direction:column; gap:10px; }
+  .chat-message{ display:flex; gap:8px; align-items:flex-start; }
+  .chat-message-body{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .chat-message-name{ font-family:'Space Mono',monospace; font-size:10.5px; color: var(--gold); }
+  .chat-message-text{
+    font-size:13.5px; color: var(--paper); background: var(--bg-alt-2); border-radius: 4px 10px 10px 10px;
+    padding: 7px 10px; word-break: break-word; line-height:1.35;
+  }
+  .chat-message.own .chat-message-text{ background: rgba(255,107,84,.18); border-radius: 10px 4px 10px 10px; }
+  .chat-message.own .chat-message-name{ color: var(--coral); }
+  .chat-empty-note{ color: var(--paper-dim); font-size:13px; text-align:center; margin-top: 20px; }
+
+  .chat-input-row{ display:flex; gap:8px; padding: 10px; border-top:1px solid var(--line); }
+  .chat-input-row input{
+    flex:1; appearance:none; -webkit-appearance:none;
+    background: var(--bg); border:1px solid var(--line-strong); color: var(--paper);
+    border-radius: 999px; padding: 9px 14px; font-size:13.5px; outline:none;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+  .chat-input-row input:focus{ border-color: var(--coral); box-shadow: 0 0 0 3px rgba(255,107,84,.18); }
+  .chat-send{
+    width:38px; height:38px; border-radius:50%; border:none; background: var(--coral); color:#1B0D08;
+    font-size:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+    transition: background 140ms ease, transform 140ms ease;
+  }
+  .chat-send:hover{ background:#ff7d68; transform: scale(1.06); }
+
+  @media (max-width: 480px){
+    .chat-panel{ width: calc(100vw - 24px); right: 12px; bottom: 78px; height: 60vh; }
+    .chat-toggle{ right: 14px; bottom: 14px; }
+  }
 
   .muted{ color: var(--paper-dim); }
   .center{ text-align:center; }
@@ -653,6 +736,23 @@
 
 </main>
 
+<!-- ===================== CHAT ===================== -->
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-panel-header">
+    <span>Chat du salon</span>
+    <button class="chat-close" id="chatClose" type="button" aria-label="Fermer le chat"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <form class="chat-input-row" id="chatForm">
+    <input type="text" id="chatInput" placeholder="Écris un message…" maxlength="300" autocomplete="off" />
+    <button type="submit" class="chat-send" aria-label="Envoyer"><i class="fa-solid fa-paper-plane"></i></button>
+  </form>
+</div>
+<button class="chat-toggle" id="chatToggle" type="button" aria-label="Ouvrir le chat" style="display:none;">
+  <i class="fa-solid fa-message"></i>
+  <span class="chat-badge" id="chatBadge" style="display:none;">0</span>
+</button>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
 "use strict";
@@ -677,6 +777,9 @@ const state = {
   hasVoted: false,
   drawTickHandle: null,
   voteTickHandle: null,
+  chatMessages: [],
+  chatOpen: false,
+  chatUnread: 0,
 };
 
 /* ============================================================
@@ -701,6 +804,8 @@ document.querySelectorAll(".screen").forEach((el) => { screens[el.id] = el; });
 function showScreen(id){
   Object.values(screens).forEach((el) => el.classList.remove("active"));
   screens[id].classList.add("active");
+  document.getElementById("chatToggle").style.display = id === "screen-home" ? "none" : "flex";
+  if (id === "screen-home") closeChat();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -714,6 +819,89 @@ function showToast(message){
   document.getElementById("toast-container").appendChild(el);
   setTimeout(() => el.remove(), 2800);
 }
+
+/* ============================================================
+   Chat texte du salon
+   ============================================================ */
+const chatPanel = document.getElementById("chatPanel");
+const chatMessagesEl = document.getElementById("chatMessages");
+const chatBadge = document.getElementById("chatBadge");
+
+function appendChatMessageDOM(message){
+  const emptyNote = chatMessagesEl.querySelector(".chat-empty-note");
+  if (emptyNote) emptyNote.remove();
+
+  const el = document.createElement("div");
+  el.className = "chat-message" + (message.playerId === state.yourId ? " own" : "");
+  el.innerHTML = `
+    <span class="mini-avatar" data-seed="${escapeHtml(message.avatarSeed || "")}"></span>
+    <div class="chat-message-body">
+      <span class="chat-message-name">${escapeHtml(message.name)}</span>
+      <span class="chat-message-text">${escapeHtml(message.text)}</span>
+    </div>
+  `;
+  chatMessagesEl.appendChild(el);
+  hydrateAvatarThumbnails(el);
+  chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+}
+
+function renderAllChatMessages(){
+  chatMessagesEl.innerHTML = "";
+  if (state.chatMessages.length === 0){
+    chatMessagesEl.innerHTML = `<p class="chat-empty-note">Aucun message pour l'instant — lance la discussion !</p>`;
+    return;
+  }
+  state.chatMessages.forEach(appendChatMessageDOM);
+}
+
+function updateChatBadge(){
+  if (state.chatUnread > 0 && !state.chatOpen){
+    chatBadge.textContent = state.chatUnread > 9 ? "9+" : String(state.chatUnread);
+    chatBadge.style.display = "flex";
+  } else {
+    chatBadge.style.display = "none";
+  }
+}
+
+function openChat(){
+  state.chatOpen = true;
+  chatPanel.classList.add("open");
+  state.chatUnread = 0;
+  updateChatBadge();
+  chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  document.getElementById("chatInput").focus();
+}
+
+function closeChat(){
+  state.chatOpen = false;
+  chatPanel.classList.remove("open");
+}
+
+document.getElementById("chatToggle").addEventListener("click", () => {
+  if (state.chatOpen) closeChat(); else openChat();
+});
+document.getElementById("chatClose").addEventListener("click", closeChat);
+
+document.getElementById("chatForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const input = document.getElementById("chatInput");
+  const text = input.value.trim();
+  if (!text) return;
+  socket.emit("chat_message", { text });
+  input.value = "";
+});
+
+socket.on("chat_message", (message) => {
+  state.chatMessages.push(message);
+  if (state.chatMessages.length > 200) state.chatMessages.shift();
+  appendChatMessageDOM(message);
+
+  const isOwnMessage = message.playerId === state.yourId;
+  if (!state.chatOpen && !isOwnMessage){
+    state.chatUnread += 1;
+    updateChatBadge();
+  }
+});
 
 /* ============================================================
    ÉCRAN ACCUEIL
@@ -971,6 +1159,10 @@ socket.on("room_joined", (payload) => {
   state.isHost = payload.isHost;
   state.settings = payload.settings;
   state.players = payload.players;
+  state.chatMessages = payload.chatMessages || [];
+  state.chatUnread = 0;
+  renderAllChatMessages();
+  updateChatBadge();
   enterLobby();
 });
 
@@ -1057,12 +1249,12 @@ function buildCarousel(containerEl, groups, options = {}){
   let animating = false;
 
   containerEl.innerHTML = `
-    <div class="carousel-viewport"><div class="carousel-track"></div></div>
-    <div class="carousel-nav">
+    <div class="carousel-body">
       ${autoplay ? "" : `<button class="carousel-arrow" type="button" data-dir="-1" aria-label="Précédent"><i class="fa-solid fa-chevron-left"></i></button>`}
-      <div class="carousel-dots"></div>
+      <div class="carousel-viewport"><div class="carousel-track"></div></div>
       ${autoplay ? "" : `<button class="carousel-arrow" type="button" data-dir="1" aria-label="Suivant"><i class="fa-solid fa-chevron-right"></i></button>`}
     </div>
+    <div class="carousel-dots"></div>
     ${autoplay ? "" : `<div class="carousel-counter"></div>`}
   `;
 
@@ -1758,7 +1950,10 @@ document.getElementById("btnPlayAgain").addEventListener("click", () => {
 
 document.getElementById("btnQuit").addEventListener("click", () => {
   socket.emit("leave_room");
-  Object.assign(state, { code: null, yourId: null, isHost: false, players: [] });
+  Object.assign(state, { code: null, yourId: null, isHost: false, players: [], chatMessages: [], chatOpen: false, chatUnread: 0 });
+  chatMessagesEl.innerHTML = "";
+  chatPanel.classList.remove("open");
+  updateChatBadge();
   pseudoInput.value = "";
   codeDigitInputs.forEach((el) => setDigitValue(el, ""));
   showScreen("screen-home");
