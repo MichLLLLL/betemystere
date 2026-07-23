@@ -135,7 +135,7 @@ const legs = base;
 const feet = base;
 const tail = [
   "seal", "meerkat", "bear", "elephant", "gazelle",
-  "lion", "tiger", "wolf", "camel", "otter", "chameleon",
+  "lion", "tiger", "wolf", "camel", "chameleon",
   "large white pig", "wild boar", "nubian goat", "nigerian goat", "irish cob",
   "arabian horse", "okapi", "maned wolf", "fossa", "angora rabbit",
   "axolotl", "red panda", "cheetah", "mantis shrimp", "sun bear", "aye-aye", "markhor", "saiga antelope",
